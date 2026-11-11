@@ -325,6 +325,46 @@ def _board_supports_wake_word(
     return assignments.get("CONFIG_SPIRAM") == "y"
 
 
+def _custom_wake_word_sdkconfig_options(
+    phrases: str,
+    display: str,
+    threshold: int,
+    language: str,
+    target: str,
+) -> tuple[str, list[str], list[str]]:
+    """Map custom (MultiNet command) wake words to Kconfig options.
+
+    `phrases` may hold several wake words separated by ';', for example
+    "mongo bot;monguito". All of them wake the device.
+    """
+    if target not in _AFE_WAKE_WORD_TARGETS:
+        raise ValueError(
+            f"Custom wake words need ESP32-S3/P4/S31 with PSRAM; {target} is not supported"
+        )
+    items = [p.strip() for p in phrases.split(";") if p.strip()]
+    if not items or any('"' in p for p in items):
+        raise ValueError(f"Invalid custom wake word {phrases!r}")
+    display = (display or items[0].title()).strip()
+    if not 1 <= threshold <= 99:
+        raise ValueError("--custom-wake-word-threshold must be between 1 and 99")
+    model_symbol = (
+        "CONFIG_SR_MN_CN_MULTINET7_QUANT"
+        if language in {"zh-CN", "zh-TW"}
+        else "CONFIG_SR_MN_EN_MULTINET7_QUANT"
+    )
+    options = [
+        "CONFIG_WAKE_WORD_DISABLED=n",
+        "CONFIG_USE_ESP_WAKE_WORD=n",
+        "CONFIG_USE_AFE_WAKE_WORD=n",
+        "CONFIG_USE_CUSTOM_WAKE_WORD=y",
+        f'CONFIG_CUSTOM_WAKE_WORD="{";".join(items)}"',
+        f'CONFIG_CUSTOM_WAKE_WORD_DISPLAY="{display}"',
+        f"CONFIG_CUSTOM_WAKE_WORD_THRESHOLD={threshold}",
+        f"{model_symbol}=y",
+    ]
+    return "custom:" + "|".join(items), options, ["CONFIG_USE_CUSTOM_WAKE_WORD", model_symbol]
+
+
 def _wake_word_sdkconfig_options(
     wake_word: str,
     target: str,
@@ -1518,6 +1558,7 @@ def build_board(
     create_zip: bool = False,
     language: Optional[str] = None,
     wake_word: Optional[str] = None,
+    custom_wake_word: Optional[dict[str, object]] = None,
     build_options: Optional[dict[str, object]] = None,
     idf_version: tuple[int, int, int] = (6, 0, 0),
 ) -> None:
@@ -1619,11 +1660,28 @@ def build_board(
                 requested_wake_word = (
                     "nihaoxiaozhi" if selected_language in {"zh-CN", "zh-TW"} else "hiesp"
                 )
-        (
-            selected_wake_word,
-            wake_word_options,
-            wake_word_symbols,
-        ) = _wake_word_sdkconfig_options(requested_wake_word, target)
+        # A build entry in config.json may define its own custom wake word;
+        # the command line takes precedence.
+        if custom_wake_word is None and isinstance(build.get("custom_wake_word"), dict):
+            custom_wake_word = build["custom_wake_word"]
+        if custom_wake_word is not None:
+            (
+                selected_wake_word,
+                wake_word_options,
+                wake_word_symbols,
+            ) = _custom_wake_word_sdkconfig_options(
+                str(custom_wake_word["phrase"]),
+                str(custom_wake_word.get("display") or ""),
+                int(custom_wake_word.get("threshold", 20)),
+                selected_language,
+                target,
+            )
+        else:
+            (
+                selected_wake_word,
+                wake_word_options,
+                wake_word_symbols,
+            ) = _wake_word_sdkconfig_options(requested_wake_word, target)
         if selected_wake_word != "disabled" and not wake_word_supported:
             raise ValueError(
                 f"Wake-word detection is disabled or unsupported for {final_name!r}; "
@@ -1784,6 +1842,27 @@ def main(argv: Optional[list[str]] = None) -> None:
             "'nihaoxiaozhi', 'hiesp', or 'disabled'. Defaults to nihaoxiaozhi "
             "for zh-CN/zh-TW and hiesp otherwise; disabled on unsupported boards"
         ),
+    )
+    parser.add_argument(
+        "--custom-wake-word",
+        metavar="PHRASES",
+        help=(
+            "Custom wake words recognized with MultiNet7 (English model unless "
+            "--language is zh-CN/zh-TW), separated by ';', for example "
+            "'mongo bot;monguito'. Overrides --wake-word and the board's config.json"
+        ),
+    )
+    parser.add_argument(
+        "--custom-wake-word-display",
+        metavar="TEXT",
+        help="Text sent to the server when a custom wake word is detected",
+    )
+    parser.add_argument(
+        "--custom-wake-word-threshold",
+        metavar="1-99",
+        type=int,
+        default=20,
+        help="Detection threshold in percent; lower is more sensitive (default: 20)",
     )
     parser.add_argument(
         "--build-options-json",
@@ -1966,6 +2045,15 @@ def main(argv: Optional[list[str]] = None) -> None:
             create_zip=args.zip,
             language=args.language,
             wake_word=args.wake_word,
+            custom_wake_word=(
+                {
+                    "phrase": args.custom_wake_word,
+                    "display": args.custom_wake_word_display,
+                    "threshold": args.custom_wake_word_threshold,
+                }
+                if args.custom_wake_word
+                else None
+            ),
             build_options=parsed_build_options,
             idf_version=idf_version,
         )

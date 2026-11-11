@@ -856,6 +856,10 @@ def get_emoji_collection_path(default_emoji_collection, noto_fonts_path, project
     """
     if not default_emoji_collection:
         return None
+
+    # A board may ship its own emoji images: accept a directory path
+    if os.path.isdir(default_emoji_collection):
+        return default_emoji_collection
     
     # Special handling for otto-gif collection
     if default_emoji_collection == 'otto-gif':
@@ -1067,12 +1071,15 @@ def main():
             "language": language,
             "duration": 3000,  # Default duration in ms
             "threshold": custom_wake_word_config['threshold'],
+            # Several wake words may be given separated by ';' (e.g. "mongo bot;monguito")
             "commands": [
                 {
-                    "command": custom_wake_word_config['wake_word'],
+                    "command": phrase.strip(),
                     "text": custom_wake_word_config['display'],
                     "action": "wake"
                 }
+                for phrase in custom_wake_word_config['wake_word'].split(';')
+                if phrase.strip()
             ]
         }
         print(f"  custom wake word: {custom_wake_word_config['wake_word']} ({custom_wake_word_config['display']})")

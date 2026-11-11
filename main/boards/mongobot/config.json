@@ -1,0 +1,14 @@
+{
+    "type": "mongobot",
+    "target": "esp32s3",
+    "builds": [
+        {
+            "name": "mongobot",
+            "custom_wake_word": {
+                "phrase": "mongo bot;monguito",
+                "display": "MongoBot",
+                "threshold": 10
+            }
+        }
+    ]
+}
