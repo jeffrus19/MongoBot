@@ -6,8 +6,11 @@ ILI9341 320x240 táctil, códec ES8311 con micrófono y parlante.
 El hardware y los pines son los mismos del board `freenove-esp32s3-display-2.8-lcd`.
 Lo que cambia:
 
-- Caras propias: 21 GIF animados en `emojis/`, uno por emoción (`happy.gif`,
-  `sad.gif`, ...). Se empaquetan en la partición de assets al compilar.
+- Caras propias estilo anime a color: 21 GIF animados en `emojis/`, uno por
+  emoción (`happy.gif`, `sad.gif`, ...). Se empaquetan en la partición de assets
+  al compilar. En `emojis_extra/` hay tres más (excited, smug, terrified) que el
+  servidor no manda, pensadas para los comportamientos por inactividad.
+- Animaciones de inactividad en `inactividad/` (por ahora, tocar guitarra).
 - Tema oscuro, para que la interfaz combine con el fondo negro de las caras.
 - Palabras de activación propias con MultiNet: "mongo bot" y "monguito"
   (definidas en `config.json`).
@@ -22,8 +25,21 @@ python scripts/build.py mongobot --language es-ES
 
 ## Cambiar las caras
 
-Reemplaza los GIF de `emojis/` manteniendo los nombres. Tamaño recomendado:
-320x240, fondo negro.
+Las caras salen de `fuentes_caras/caras_hoja.png` (6 columnas x 4 filas, con el
+nombre de cada emoción debajo). Para regenerarlas:
+
+```
+cd main/boards/mongobot/fuentes_caras
+python generar_caras2.py caras_hoja.png salida sueltas
+```
+
+Después se copian a `emojis/` las 21 estándar y a `emojis_extra/` las otras tres.
+Una cara dibujada aparte se pone en `sueltas/` con el nombre de la emoción
+(`crying.png`) y reemplaza a la de la hoja. Necesita Pillow, numpy, scipy y
+opencv-python.
+
+También se puede reemplazar un GIF a mano, manteniendo el nombre: 320x240,
+fondo negro.
 
 ## Cambiar las palabras de activación
 
