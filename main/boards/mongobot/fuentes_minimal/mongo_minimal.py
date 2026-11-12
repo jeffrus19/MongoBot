@@ -110,6 +110,11 @@ SIN_ZOOM = {"conversa_escucha", "conversa_habla"}
 VERTICAL = True
 PW, PH = 240, 320
 VERT_Y = 40
+# En vertical el ancho es 240: toda la escena (cabeza y adornos) se achica un poco, igual
+# para todas, para que los adornos de los lados no toquen el borde. La cúpula no.
+VERT_ESCALA = 0.85
+VERT_SIN_ESCALA = {"conversa_escucha", "conversa_habla"}
+VERT_ESCALA_POR = {"escuchando": 0.8}      # las ondas de los dos lados necesitan un poco más
 VERT_DY: dict[str, float] = {}
 VERT_DX: dict[str, float] = {}
 try:                                   # lo calcula encuadre_vertical.py
@@ -127,6 +132,7 @@ class Lienzo:
     def __init__(self, color):
         self.oy = (VERT_Y + VERT_DY.get(ACTUAL, 0)) if VERTICAL else 0
         self.ox = VERT_DX.get(ACTUAL, 0) if VERTICAL else 0
+        self.escala = 1.0 if (not VERTICAL or ACTUAL in VERT_SIN_ESCALA) else VERT_ESCALA_POR.get(ACTUAL, VERT_ESCALA)
         self.img = Image.new("RGB", (W * SS, (H + 2 * VERT_Y if VERTICAL else H) * SS), (0, 0, 0))
         self.d = ImageDraw.Draw(self.img)
         self.C = color
@@ -199,6 +205,11 @@ class Lienzo:
             img = img.crop((int(x0), int(y0), int(x0 + w), int(y0 + h))).resize((cw, ch))
         if not VERTICAL:
             return img.resize((W, H), Image.LANCZOS)
+        if self.escala != 1.0:
+            # achica alrededor del centro de la cabeza (CX, CY + oy), que queda quieto
+            zx, zy = CX * SS, (CY + self.oy) * SS
+            x0, y0 = zx - zx / self.escala, zy - zy / self.escala
+            img = img.crop((int(x0), int(y0), int(x0 + cw / self.escala), int(y0 + ch / self.escala))).resize((cw, ch))
         x0 = (CX + self.ox - PW / 2) * SS
         img = img.crop((int(x0), 0, int(x0 + PW * SS), ch))
         return img.resize((PW, PH), Image.LANCZOS)

@@ -123,6 +123,8 @@ respetar estas reglas, porque cada una corrigió un error real:
    calcula `encuadre_vertical.py`: la cabeza queda siempre a la misma altura (centro en
    y=150 de 320) salvo las que necesitan otro lugar (cúpula de conversación, juego sin
    conexión, temporada, ejercicio, videojuego).
+   En vertical toda la escena se achica al 85 % (80 % en escuchando) para que los
+   adornos de los lados queden a 8 px o más del borde; el encuadre lo verifica.
    En vertical la cúpula de conversación se acerca un poco (zoom 1,12) y sale desde el
    borde de abajo, y los globitos salen encima de la cabeza en vez de a los lados.
    En LVGL: pantalla en orientación vertical (rotación del ILI9341/ST7789) y cada

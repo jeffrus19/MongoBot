@@ -17,11 +17,11 @@
  },
  "sad": {
   "dx": 0,
-  "dy": -19
+  "dy": -18
  },
  "crying": {
   "dx": 0,
-  "dy": -18
+  "dy": -17
  },
  "angry": {
   "dx": 0,
@@ -37,18 +37,18 @@
  },
  "surprised": {
   "dx": 0,
-  "dy": -8
+  "dy": -9
  },
  "shocked": {
   "dx": 0,
   "dy": -14
  },
  "thinking": {
-  "dx": 28,
+  "dx": 12,
   "dy": -14
  },
  "winking": {
-  "dx": 5,
+  "dx": 0,
   "dy": -14
  },
  "cool": {
@@ -68,24 +68,24 @@
   "dy": -14
  },
  "confident": {
-  "dx": 5,
+  "dx": 0,
   "dy": -14
  },
  "sleepy": {
-  "dx": 26,
-  "dy": -18
+  "dx": 10,
+  "dy": -17
  },
  "silly": {
   "dx": 0,
-  "dy": -10
+  "dy": -11
  },
  "confused": {
-  "dx": 11,
+  "dx": 0,
   "dy": -14
  },
  "excited": {
   "dx": 0,
-  "dy": -8
+  "dy": -9
  },
  "smug": {
   "dx": 0,
@@ -100,12 +100,12 @@
   "dy": -14
  },
  "musica": {
-  "dx": 24,
-  "dy": 6
+  "dx": 17,
+  "dy": 3
  },
  "mirando": {
   "dx": 0,
-  "dy": -12
+  "dy": -13
  },
  "conversa_escucha": {
   "dx": 0,
@@ -125,14 +125,14 @@
  },
  "conectando": {
   "dx": 0,
-  "dy": -40
+  "dy": -36
  },
  "sin_conexion": {
   "dx": 0,
   "dy": 40
  },
  "saludo": {
-  "dx": 34,
+  "dx": 23,
   "dy": -14
  },
  "alarma": {
@@ -144,23 +144,23 @@
   "dy": -14
  },
  "clima_sol": {
-  "dx": 15,
+  "dx": 1,
   "dy": -20
  },
  "clima_nube": {
-  "dx": 28,
-  "dy": -28
+  "dx": 23,
+  "dy": -26
  },
  "clima_lluvia": {
-  "dx": -10,
-  "dy": -2
+  "dx": -8,
+  "dy": -4
  },
  "pomodoro_trabajo": {
-  "dx": 17,
-  "dy": -18
+  "dx": 3,
+  "dy": -17
  },
  "pomodoro_descanso": {
-  "dx": 18,
+  "dx": 4,
   "dy": -16
  },
  "presumido": {
@@ -168,8 +168,8 @@
   "dy": -14
  },
  "llamando": {
-  "dx": 17,
-  "dy": -22
+  "dx": 6,
+  "dy": -21
  },
  "tacto_cosquillas": {
   "dx": 0,
@@ -185,7 +185,7 @@
  },
  "leyendo": {
   "dx": 0,
-  "dy": -20
+  "dy": -19
  },
  "rodar_ojos": {
   "dx": 0,
@@ -197,15 +197,15 @@
  },
  "ofendido": {
   "dx": 0,
-  "dy": -8
+  "dy": -9
  },
  "furioso": {
   "dx": 0,
-  "dy": -16
+  "dy": -15
  },
  "eureka": {
   "dx": 0,
-  "dy": -28
+  "dy": -26
  },
  "picaro": {
   "dx": 0,
@@ -217,7 +217,7 @@
  },
  "orgulloso": {
   "dx": 0,
-  "dy": -18
+  "dy": -17
  },
  "curioso": {
   "dx": 0,
@@ -229,22 +229,22 @@
  },
  "decepcionado": {
   "dx": 0,
-  "dy": -21
+  "dy": -20
  },
  "bostezo": {
   "dx": 0,
   "dy": -13
  },
  "recordatorio": {
-  "dx": 14,
-  "dy": -24
+  "dx": 0,
+  "dy": -22
  },
  "mensaje": {
-  "dx": 25,
-  "dy": -8
+  "dx": -17,
+  "dy": -9
  },
  "configurar_wifi": {
-  "dx": 20,
+  "dx": 0,
   "dy": -14
  },
  "actualizando": {
@@ -256,23 +256,23 @@
   "dy": -14
  },
  "anio_nuevo": {
-  "dx": -4,
-  "dy": -40
+  "dx": -3,
+  "dy": -54
  },
  "navidad": {
   "dx": 0,
-  "dy": -40
+  "dy": -55
  },
  "guitarra": {
-  "dx": 24,
-  "dy": -19
+  "dx": 9,
+  "dy": -18
  },
  "ejercicio": {
   "dx": 0,
   "dy": -11
  },
  "videojuego": {
-  "dx": 30,
-  "dy": 16
+  "dx": 21,
+  "dy": 12
  }
 }
