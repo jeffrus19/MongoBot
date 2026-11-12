@@ -628,6 +628,335 @@ index 75e7c0b..93c2d3c 100644
              self.autoModeChanged.emit()
              self.modeTextChanged.emit()
              self.buttonTextChanged.emit()
+diff --git a/src/ui/gui/models/settings/audio_devices.py b/src/ui/gui/models/settings/audio_devices.py
+index 0bc5d59..c0a7b54 100644
+--- a/src/ui/gui/models/settings/audio_devices.py
++++ b/src/ui/gui/models/settings/audio_devices.py
+@@ -23,8 +23,8 @@ class SettingsAudioDevicesMixin:
+         self._output_devices = list(devices.get("output") or [])
+         self._audio_devices_loaded = True
+         logger.debug(
+-            f"加载了 {len(self._input_devices)} 个输入设备, "
+-            f"{len(self._output_devices)} 个输出设备"
++            f"{len(self._input_devices)} entradas, "
++            f"{len(self._output_devices)} salidas"
+         )
+         self.devicesChanged.emit()
+ 
+@@ -59,13 +59,13 @@ class SettingsAudioDevicesMixin:
+         self._audio_devices_loading = False
+         self._audio_devices_refreshing = False
+         if error is not None:
+-            self.statusMessage.emit(f"[错误] 音频设备枚举失败: {error}")
++            self.statusMessage.emit(f"[Error] No se pudieron buscar dispositivos de audio: {error}")
+             return
+         self._apply_device_lists(devices if isinstance(devices, dict) else {})
+         if refreshed:
+             self.statusMessage.emit(
+-                f"设备列表已刷新（输入 {len(self._input_devices)} / "
+-                f"输出 {len(self._output_devices)}）"
++                f"Lista de dispositivos actualizada (entrada {len(self._input_devices)} / "
++                f"salida {len(self._output_devices)})"
+             )
+ 
+     @Slot(result=list)
+@@ -86,19 +86,19 @@ class SettingsAudioDevicesMixin:
+         if self._closed:
+             return
+         if self._audio_devices_loading or self._audio_devices_refreshing:
+-            self.statusMessage.emit("设备刷新进行中…")
++            self.statusMessage.emit("Actualizando dispositivos…")
+             return
+         event_bus = self._event_bus
+         task_manager = self._task_manager
+         if event_bus is None or task_manager is None:
+-            self.statusMessage.emit("正在后台枚举设备（未协调音频流）…")
++            self.statusMessage.emit("Buscando dispositivos en segundo plano…")
+             self._load_audio_devices(force=True)
+             return
+ 
+         self._audio_devices_refreshing = True
+         self._audio_generation += 1
+         generation = self._audio_generation
+-        self.statusMessage.emit("正在刷新音频设备（会短暂中断麦克风/播放）…")
++        self.statusMessage.emit("Actualizando audio (el micrófono y el sonido se cortan un momento)…")
+ 
+         async def _refresh():
+             from src.core.event_bus import Events
+@@ -116,7 +116,7 @@ class SettingsAudioDevicesMixin:
+             try:
+                 devices, error = task.result(), None
+             except asyncio.CancelledError:
+-                devices, error = None, "刷新已取消"
++                devices, error = None, "Actualización cancelada"
+             except Exception as exc:
+                 logger.error("设备刷新任务异常: %s", exc, exc_info=True)
+                 devices, error = None, str(exc)
+@@ -131,7 +131,7 @@ class SettingsAudioDevicesMixin:
+             task = task_manager.spawn(coroutine, name="ui:audio_devices_refresh")
+             if task is None:
+                 coroutine.close()
+-                self._finish_audio_devices(generation, None, "应用正在关闭")
++                self._finish_audio_devices(generation, None, "La aplicación se está cerrando")
+                 return
+             task.add_done_callback(_on_task_done)
+         except Exception as exc:
+@@ -197,15 +197,15 @@ class SettingsAudioDevicesMixin:
+         idx = self._get_selectedInputIndex()
+         if 0 <= idx < len(self._input_devices):
+             d = self._input_devices[idx]
+-            return f"采样率: {d['sample_rate']}Hz, 通道: {d['channels']}"
+-        return "未选择设备"
++            return f"Frecuencia: {d['sample_rate']} Hz, canales: {d['channels']}"
++        return "Ningún dispositivo elegido"
+ 
+     def _get_outputDeviceInfo(self) -> str:
+         idx = self._get_selectedOutputIndex()
+         if 0 <= idx < len(self._output_devices):
+             d = self._output_devices[idx]
+-            return f"采样率: {d['sample_rate']}Hz, 通道: {d['channels']}"
+-        return "未选择设备"
++            return f"Frecuencia: {d['sample_rate']} Hz, canales: {d['channels']}"
++        return "Ningún dispositivo elegido"
+ 
+     # Opus 输出采样率
+     def _get_opusOutputSampleRate(self) -> int:
+@@ -231,12 +231,12 @@ class SettingsAudioDevicesMixin:
+ 
+         idx = self._get_selectedInputIndex()
+         if idx < 0 or idx >= len(self._input_devices):
+-            self.statusMessage.emit("请先选择输入设备")
++            self.statusMessage.emit("Primero elegí un micrófono")
+             return
+ 
+         device = self._input_devices[idx]
+         self._testing_input = True
+-        self.statusMessage.emit("开始录音测试...")
++        self.statusMessage.emit("Empezando prueba de grabación...")
+ 
+         self._run_worker(
+             self._do_input_test,
+@@ -252,7 +252,7 @@ class SettingsAudioDevicesMixin:
+         sample_rate = device["sample_rate"]
+         duration = 3
+ 
+-        self.statusMessage.emit(f"请对着麦克风说话 ({duration}秒)...")
++        self.statusMessage.emit(f"Hablá al micrófono ({duration} s)...")
+         time.sleep(1)
+ 
+         recording = sd.rec(
+@@ -267,13 +267,13 @@ class SettingsAudioDevicesMixin:
+         max_amplitude = np.max(np.abs(recording))
+ 
+         if max_amplitude < 0.001:
+-            self.statusMessage.emit("[失败] 未检测到音频信号")
++            self.statusMessage.emit("[Falló] No se detectó señal de audio")
+             self.testComplete.emit("input", False)
+         elif max_amplitude > 0.8:
+-            self.statusMessage.emit("[警告] 音频信号过载")
++            self.statusMessage.emit("[Aviso] La señal de audio está saturada")
+             self.testComplete.emit("input", True)
+         else:
+-            self.statusMessage.emit(f"[成功] 录音测试通过 (音量: {max_amplitude:.1%})")
++            self.statusMessage.emit(f"[Listo] Prueba de grabación correcta (volumen: {max_amplitude:.1%})")
+             self.testComplete.emit("input", True)
+ 
+     @Slot()
+@@ -284,12 +284,12 @@ class SettingsAudioDevicesMixin:
+ 
+         idx = self._get_selectedOutputIndex()
+         if idx < 0 or idx >= len(self._output_devices):
+-            self.statusMessage.emit("请先选择输出设备")
++            self.statusMessage.emit("Primero elegí un parlante")
+             return
+ 
+         device = self._output_devices[idx]
+         self._testing_output = True
+-        self.statusMessage.emit("开始播放测试...")
++        self.statusMessage.emit("Empezando prueba de sonido...")
+ 
+         self._run_worker(
+             self._do_output_test,
+@@ -306,7 +306,7 @@ class SettingsAudioDevicesMixin:
+         duration = 2.0
+         frequency = 440
+ 
+-        self.statusMessage.emit("播放 440Hz 测试音...")
++        self.statusMessage.emit("Sonando tono de prueba de 440 Hz...")
+         time.sleep(0.5)
+ 
+         t = np.linspace(0, duration, int(sample_rate * duration))
+@@ -319,5 +319,5 @@ class SettingsAudioDevicesMixin:
+         sd.play(audio, samplerate=sample_rate, device=device_id)
+         sd.wait()
+ 
+-        self.statusMessage.emit("[成功] 播放测试完成")
++        self.statusMessage.emit("[Listo] Prueba de sonido terminada")
+         self.testComplete.emit("output", True)
+diff --git a/src/ui/gui/models/settings/camera_devices.py b/src/ui/gui/models/settings/camera_devices.py
+index 8dc8c72..94f8271 100644
+--- a/src/ui/gui/models/settings/camera_devices.py
++++ b/src/ui/gui/models/settings/camera_devices.py
+@@ -49,15 +49,15 @@ class SettingsCameraDevicesMixin:
+         def apply():
+             self._cameras_loading = False
+             if error is not None:
+-                self.statusMessage.emit(f"[错误] 摄像头枚举失败: {error}")
++                self.statusMessage.emit(f"[Error] No se pudieron buscar cámaras: {error}")
+                 return
+             self._cameras = cameras
+             self._cameras_loaded_once = True
+             self.devicesChanged.emit()
+             self.statusMessage.emit(
+-                f"摄像头列表已刷新（{len(cameras)} 个）"
++                f"Lista de cámaras actualizada ({len(cameras)})"
+                 if cameras
+-                else "未检测到摄像头（Pi CSI 需安装 picamera2）"
++                else "No se detectó ninguna cámara"
+             )
+ 
+         self._schedule_ui(apply)
+@@ -118,16 +118,16 @@ class SettingsCameraDevicesMixin:
+     def testCamera(self):
+         """测试摄像头，捕获一帧并显示."""
+         if not self._cameras:
+-            self.statusMessage.emit("没有可用的摄像头")
++            self.statusMessage.emit("No hay cámaras disponibles")
+             return
+ 
+         idx = self._get_selectedCameraIndex()
+         if idx < 0 or idx >= len(self._cameras):
+-            self.statusMessage.emit("请先选择摄像头")
++            self.statusMessage.emit("Primero elegí una cámara")
+             return
+ 
+         camera = self._cameras[idx]
+-        self.statusMessage.emit(f"正在测试摄像头 {camera['name']}...")
++        self.statusMessage.emit(f"Probando la cámara {camera['name']}...")
+ 
+         self._run_worker(
+             self._do_camera_test,
+@@ -171,12 +171,12 @@ class SettingsCameraDevicesMixin:
+         jpeg = capture_jpeg(cfg)
+         if not jpeg:
+             self.statusMessage.emit(
+-                "[失败] 无法捕获图像（Pi CSI 请装 python3-picamera2 或改选 USB）"
++                "[Falló] No se pudo tomar la imagen"
+             )
+             self.testComplete.emit("camera", False)
+             return
+ 
+         self.statusMessage.emit(
+-            f"[成功] 摄像头正常 (JPEG {len(jpeg)} bytes, {camera['name']})"
++            f"[Listo] La cámara funciona (JPEG {len(jpeg)} bytes, {camera['name']})"
+         )
+         self.testComplete.emit("camera", True)
+diff --git a/src/ui/gui/models/settings/system_options.py b/src/ui/gui/models/settings/system_options.py
+index 75a059b..b5d6d29 100644
+--- a/src/ui/gui/models/settings/system_options.py
++++ b/src/ui/gui/models/settings/system_options.py
+@@ -240,11 +240,11 @@ class SettingsSystemOptionsMixin:
+ 
+             data = get_user_data_dir()
+             return (
+-                f"数据根(配置固定在此): {data}\n"
+-                f"留空=默认；点「选择」用系统对话框；保存后下次启动迁移"
++                f"Carpeta de datos (aquí queda la configuración): {data}\n"
++                f"Vacío = predeterminado; «Elegir» abre el selector de carpetas; el cambio se aplica al volver a abrir"
+             )
+         except Exception:
+-            return "留空使用默认路径；保存后下次启动迁移"
++            return "Vacío = ruta predeterminada; el cambio se aplica al volver a abrir"
+ 
+     def _browse_directory(self, title: str, current: str, which: str = "") -> str:
+         """打开系统文件夹选择对话框；取消返回空串（调用方勿覆盖）."""
+diff --git a/src/ui/gui/models/settings/wake_word.py b/src/ui/gui/models/settings/wake_word.py
+index cf7577b..f8d8304 100644
+--- a/src/ui/gui/models/settings/wake_word.py
++++ b/src/ui/gui/models/settings/wake_word.py
+@@ -67,7 +67,7 @@ class SettingsWakeWordMixin:
+             self._wake_word_lang = lang
+         except Exception as e:
+             logger.error(f"转换唤醒词失败: {e}", exc_info=True)
+-            self._wake_word_preview = f"转换失败: {e}"
++            self._wake_word_preview = f"Falló la conversión: {e}"
+ 
+     def _get_wakeWord(self) -> str:
+         return self._wake_word
+@@ -92,7 +92,7 @@ class SettingsWakeWordMixin:
+             是否保存成功
+         """
+         if not self._wake_word:
+-            self.set_error("请输入唤醒词")
++            self.set_error("Escribí la palabra de activación")
+             return False
+ 
+         try:
+@@ -117,11 +117,11 @@ class SettingsWakeWordMixin:
+                 self.set_error(error)
+                 return False
+             logger.info("唤醒词已保存: %s", self._wake_word)
+-            self.statusMessage.emit(f"唤醒词已保存 ({lang.upper()})")
++            self.statusMessage.emit(f"Palabra de activación guardada ({lang.upper()})")
+             return True
+ 
+         except Exception as e:
+-            logger.error(f"保存唤醒词失败: {e}", exc_info=True)
+-            self.set_error(f"保存唤醒词失败: {e}")
++            logger.error(f"No se pudo guardar la palabra de activación: {e}", exc_info=True)
++            self.set_error(f"No se pudo guardar la palabra de activación: {e}")
+             return False
+ 
+diff --git a/src/ui/gui/models/settings_model.py b/src/ui/gui/models/settings_model.py
+index f9a3f22..bd0e3a3 100644
+--- a/src/ui/gui/models/settings_model.py
++++ b/src/ui/gui/models/settings_model.py
+@@ -135,10 +135,10 @@ class SettingsModel(
+                 target(*args)
+             except Exception as e:
+                 logger.error(
+-                    f"设置页后台任务失败 ({name or target}): {e}", exc_info=True
++                    f"Falló una tarea de ajustes ({name or target}): {e}", exc_info=True
+                 )
+                 try:
+-                    self.statusMessage.emit(f"[错误] {e}")
++                    self.statusMessage.emit(f"[Error] {e}")
+                 except Exception:
+                     pass
+                 if test_kind is not None:
+@@ -197,12 +197,12 @@ class SettingsModel(
+                 self.set_error(error)
+                 return False
+             logger.info("设置已保存并加载到运行时配置")
+-            self.statusMessage.emit("配置已保存")
++            self.statusMessage.emit("Configuración guardada")
+             self.configSaved.emit()
+             return True
+         except Exception as e:
+-            logger.error(f"保存配置失败: {e}", exc_info=True)
+-            self.set_error(f"保存配置失败: {e}")
++            logger.error(f"No se pudo guardar la configuración: {e}", exc_info=True)
++            self.set_error(f"No se pudo guardar la configuración: {e}")
+             return False
+ 
+     @Slot()
+@@ -364,11 +364,11 @@ class SettingsModel(
+             "mcp": self._set_pathMcpPluginsDir,
+         }
+         titles = {
+-            "cache": "选择缓存目录",
+-            "log": "选择日志目录",
+-            "music": "选择音乐缓存目录",
+-            "keywords": "选择唤醒词目录",
+-            "mcp": "选择 MCP 插件目录",
++            "cache": "Elegir carpeta de caché",
++            "log": "Elegir carpeta de registros",
++            "music": "Elegir carpeta de caché de música",
++            "keywords": "Elegir carpeta de palabras de activación",
++            "mcp": "Elegir carpeta de complementos MCP",
+         }
+         if which not in getters:
+             return ""
 diff --git a/src/ui/gui/qml/panels/ChatPanel.qml b/src/ui/gui/qml/panels/ChatPanel.qml
 index 10a6f20..2268623 100644
 --- a/src/ui/gui/qml/panels/ChatPanel.qml
@@ -764,6 +1093,1176 @@ index 5532e14..58c8ff6 100644
  
                          background: Rectangle {
                              color: settingsBtn.pressed ? Theme.divider : (settingsBtn.hovered ? Theme.backgroundHover : Theme.backgroundSecondary)
+diff --git a/src/ui/gui/qml/windows/SettingsWindow.qml b/src/ui/gui/qml/windows/SettingsWindow.qml
+index 97ea8c8..8689179 100644
+--- a/src/ui/gui/qml/windows/SettingsWindow.qml
++++ b/src/ui/gui/qml/windows/SettingsWindow.qml
+@@ -13,19 +13,19 @@ AppWindow {
+     height: 550
+     minimumWidth: 600
+     minimumHeight: 450
+-    title: "参数设置"
++    title: "Ajustes"
+     visible: false
+     onClosing: settingsModel.discard()
+ 
+     // Tab 配置
+     readonly property var tabConfig: [
+-        { name: "系统选项", component: "SystemOptionsTab.qml" },
+-        { name: "MCP 工具", component: "McpToolsTab.qml" },
+-        { name: "唤醒词", component: "WakeWordTab.qml" },
+-        { name: "摄像头", component: "CameraTab.qml" },
+-        { name: "音频设备", component: "AudioDeviceTab.qml" },
+-        { name: "快捷键", component: "ShortcutsTab.qml" },
+-        { name: "音乐", component: "MusicTab.qml" }
++        { name: "Sistema", component: "SystemOptionsTab.qml" },
++        { name: "Herramientas MCP", component: "McpToolsTab.qml" },
++        { name: "Palabra de activación", component: "WakeWordTab.qml" },
++        { name: "Cámara", component: "CameraTab.qml" },
++        { name: "Audio", component: "AudioDeviceTab.qml" },
++        { name: "Atajos", component: "ShortcutsTab.qml" },
++        { name: "Música", component: "MusicTab.qml" }
+     ]
+ 
+     // 直接使用 ColumnLayout，不需要额外的 Rectangle 层
+@@ -36,7 +36,7 @@ AppWindow {
+             // 自定义标题栏 - 平台自适应
+             TitleBar {
+                 Layout.fillWidth: true
+-                title: "参数设置"
++                title: "Ajustes"
+                 showMaximize: true
+                 onMinimizeClicked: root.showMinimized()
+                 onMaximizeClicked: {
+@@ -223,7 +223,7 @@ AppWindow {
+                         id: resetBtn
+                         Layout.preferredWidth: 80
+                         Layout.preferredHeight: 34
+-                        text: "重置"
++                        text: "Restablecer"
+ 
+                         background: Rectangle {
+                             color: resetBtn.pressed ? Theme.errorLight : (resetBtn.hovered ? Theme.errorLight : "transparent")
+@@ -250,7 +250,7 @@ AppWindow {
+                         id: cancelBtn
+                         Layout.preferredWidth: 80
+                         Layout.preferredHeight: 34
+-                        text: "取消"
++                        text: "Cancelar"
+ 
+                         background: Rectangle {
+                             color: cancelBtn.pressed ? Theme.divider : (cancelBtn.hovered ? Theme.backgroundHover : Theme.backgroundSecondary)
+@@ -275,7 +275,7 @@ AppWindow {
+                         id: saveBtn
+                         Layout.preferredWidth: 80
+                         Layout.preferredHeight: 34
+-                        text: "保存"
++                        text: "Guardar"
+ 
+                         background: Rectangle {
+                             color: saveBtn.pressed ? Theme.primaryPressed : (saveBtn.hovered ? Theme.primaryHover : Theme.primary)
+diff --git a/src/ui/gui/qml/windows/settings/AudioDeviceTab.qml b/src/ui/gui/qml/windows/settings/AudioDeviceTab.qml
+index fd45817..cffe60d 100644
+--- a/src/ui/gui/qml/windows/settings/AudioDeviceTab.qml
++++ b/src/ui/gui/qml/windows/settings/AudioDeviceTab.qml
+@@ -32,7 +32,7 @@ ScrollView {
+             // model 设置后重新同步 currentIndex
+             inputCombo.currentIndex = settingsModel.selectedInputIndex
+             outputCombo.currentIndex = settingsModel.selectedOutputIndex
+-            addLog("设备列表已加载")
++            addLog("Lista de dispositivos cargada")
+         }
+     }
+ 
+@@ -45,7 +45,7 @@ ScrollView {
+                 // model 设置后重新同步 currentIndex
+                 inputCombo.currentIndex = settingsModel.selectedInputIndex
+                 outputCombo.currentIndex = settingsModel.selectedOutputIndex
+-                addLog("设备列表已刷新")
++                addLog("Lista de dispositivos actualizada")
+             }
+         }
+         function onTestComplete(type, success) {
+@@ -70,7 +70,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "音频设备"
++                text: "Audio"
+                 font.pixelSize: Theme.fontSizeXl
+                 font.weight: Font.DemiBold
+                 color: Theme.textPrimary
+@@ -79,7 +79,7 @@ ScrollView {
+             Item { Layout.fillWidth: true }
+ 
+             Button {
+-                text: "刷新设备"
++                text: "Actualizar dispositivos"
+                 Layout.preferredHeight: 32
+ 
+                 background: Rectangle {
+@@ -105,7 +105,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "输入设备 (麦克风)"
++                text: "Entrada (micrófono)"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -126,7 +126,7 @@ ScrollView {
+                 }
+ 
+                 Button {
+-                    text: root.inputTesting ? "测试中..." : "测试"
++                    text: root.inputTesting ? "Probando..." : "Probar"
+                     enabled: !root.inputTesting
+                     Layout.preferredWidth: 80
+                     Layout.preferredHeight: 32
+@@ -182,7 +182,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "输出设备 (扬声器)"
++                text: "Salida (parlante)"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -203,7 +203,7 @@ ScrollView {
+                 }
+ 
+                 Button {
+-                    text: root.outputTesting ? "测试中..." : "测试"
++                    text: root.outputTesting ? "Probando..." : "Probar"
+                     enabled: !root.outputTesting
+                     Layout.preferredWidth: 80
+                     Layout.preferredHeight: 32
+@@ -259,7 +259,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "Opus 输出采样率"
++                text: "Frecuencia de salida Opus"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -272,12 +272,12 @@ ScrollView {
+                 XComboBox {
+                     id: sampleRateCombo
+                     Layout.fillWidth: true
+-                    model: ["24000 Hz (官方服务器)", "16000 Hz (第三方服务器)"]
++                    model: ["24000 Hz (servidor oficial)", "16000 Hz (otros servidores)"]
+                     currentIndex: settingsModel ? (settingsModel.opusOutputSampleRate === 24000 ? 0 : 1) : 0
+                     onActivated: function(index) {
+                         if (settingsModel) {
+                             settingsModel.opusOutputSampleRate = (index === 0) ? 24000 : 16000
+-                            addLog("Opus 输出采样率已设置为 " + (index === 0 ? "24000" : "16000") + " Hz")
++                            addLog("Frecuencia de salida Opus: " + (index === 0 ? "24000" : "16000") + " Hz")
+                         }
+                     }
+                     font.pixelSize: Theme.fontSizeSm
+@@ -295,7 +295,7 @@ ScrollView {
+                     anchors.left: parent.left
+                     anchors.leftMargin: Theme.spacingMd
+                     anchors.verticalCenter: parent.verticalCenter
+-                    text: "官方服务器使用 24kHz，第三方服务器通常使用 16kHz"
++                    text: "El servidor oficial usa 24 kHz; otros servidores suelen usar 16 kHz"
+                     font.pixelSize: Theme.fontSizeXs
+                     color: Theme.textPlaceholder
+                 }
+@@ -315,7 +315,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "音频帧长度"
++                text: "Duración de trama de audio"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -328,7 +328,7 @@ ScrollView {
+                 XComboBox {
+                     id: frameDurationCombo
+                     Layout.fillWidth: true
+-                    model: ["20 ms (低延迟)", "40 ms (平衡)", "60 ms (低CPU)"]
++                    model: ["20 ms (poca latencia)", "40 ms (equilibrado)", "60 ms (poco CPU)"]
+                     currentIndex: {
+                         if (!settingsModel) return 0
+                         var duration = settingsModel.frameDuration
+@@ -341,7 +341,7 @@ ScrollView {
+                         if (settingsModel) {
+                             var durations = [20, 40, 60]
+                             settingsModel.frameDuration = durations[index]
+-                            addLog("音频帧长度已设置为 " + durations[index] + " ms")
++                            addLog("Duración de trama de audio: " + durations[index] + " ms")
+                         }
+                     }
+                     font.pixelSize: Theme.fontSizeSm
+@@ -359,7 +359,7 @@ ScrollView {
+                     anchors.left: parent.left
+                     anchors.leftMargin: Theme.spacingMd
+                     anchors.verticalCenter: parent.verticalCenter
+-                    text: "20ms 低延迟高CPU，60ms 高延迟低CPU（适合树莓派）"
++                    text: "20 ms: poca latencia, más CPU; 60 ms: más latencia, menos CPU (para Raspberry Pi)"
+                     font.pixelSize: Theme.fontSizeXs
+                     color: Theme.textPlaceholder
+                 }
+@@ -369,7 +369,7 @@ ScrollView {
+         // 提示信息
+         Text {
+             Layout.fillWidth: true
+-            text: "点击测试按钮验证设备是否正常工作。输入测试会录制 3 秒音频，输出测试会播放 440Hz 测试音。"
++            text: "Usá «Probar» para revisar los dispositivos: la entrada graba 3 segundos y la salida suena un tono de 440 Hz."
+             font.pixelSize: Theme.fontSizeSm
+             color: Theme.textPlaceholder
+             wrapMode: Text.WordWrap
+@@ -391,7 +391,7 @@ ScrollView {
+                 Layout.fillWidth: true
+ 
+                 Text {
+-                    text: "状态日志"
++                    text: "Registro de estado"
+                     font.pixelSize: Theme.fontSizeMd
+                     font.weight: Font.Medium
+                     color: Theme.textSecondary
+@@ -400,7 +400,7 @@ ScrollView {
+                 Item { Layout.fillWidth: true }
+ 
+                 Button {
+-                    text: "清除日志"
++                    text: "Borrar registro"
+                     Layout.preferredHeight: 28
+ 
+                     background: Rectangle {
+@@ -418,7 +418,7 @@ ScrollView {
+ 
+                     onClicked: {
+                         root.statusLogs = []
+-                        addLog("日志已清除")
++                        addLog("Registro borrado")
+                     }
+                 }
+             }
+diff --git a/src/ui/gui/qml/windows/settings/CameraTab.qml b/src/ui/gui/qml/windows/settings/CameraTab.qml
+index 4a8777f..0bb384d 100644
+--- a/src/ui/gui/qml/windows/settings/CameraTab.qml
++++ b/src/ui/gui/qml/windows/settings/CameraTab.qml
+@@ -37,7 +37,7 @@ ScrollView {
+         }
+         function onStatusMessage(message) {
+             root.testResult = message
+-            if (message.startsWith("[成功]") || message.startsWith("[失败]") || message.startsWith("[错误]")) {
++            if (message.startsWith("[Listo]") || message.startsWith("[Falló]") || message.startsWith("[Error]")) {
+                 root.cameraTesting = false
+             }
+         }
+@@ -49,7 +49,7 @@ ScrollView {
+ 
+         // 页面标题
+         Text {
+-            text: "摄像头设置"
++            text: "Cámara"
+             font.pixelSize: Theme.fontSizeXl
+             font.weight: Font.DemiBold
+             color: Theme.textPrimary
+@@ -61,7 +61,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "设备选择"
++                text: "Elegir dispositivos"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -72,7 +72,7 @@ ScrollView {
+                 spacing: Theme.spacingMd
+ 
+                 Text {
+-                    text: "摄像头"
++                    text: "Cámara"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 80
+@@ -89,7 +89,7 @@ ScrollView {
+                 }
+ 
+                 Button {
+-                    text: root.cameraTesting ? "测试中..." : "测试"
++                    text: root.cameraTesting ? "Probando..." : "Probar"
+                     enabled: !root.cameraTesting
+                     Layout.preferredWidth: 70
+                     Layout.preferredHeight: 32
+@@ -115,7 +115,7 @@ ScrollView {
+                 }
+ 
+                 Button {
+-                    text: "刷新"
++                    text: "Actualizar"
+                     Layout.preferredWidth: 70
+                     Layout.preferredHeight: 32
+ 
+@@ -150,7 +150,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "视频参数"
++                text: "Parámetros de video"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -163,7 +163,7 @@ ScrollView {
+                 columnSpacing: Theme.spacingLg
+ 
+                 Text {
+-                    text: "分辨率"
++                    text: "Resolución"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 80
+@@ -215,7 +215,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "视觉语言模型 (VL API)"
++                text: "Modelo de visión (VL API)"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -228,7 +228,7 @@ ScrollView {
+                 columnSpacing: Theme.spacingLg
+ 
+                 Text {
+-                    text: "API 地址"
++                    text: "Dirección de la API"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 80
+@@ -262,7 +262,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "模型"
++                    text: "Modelo"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 80
+@@ -294,12 +294,12 @@ ScrollView {
+         Rectangle {
+             Layout.fillWidth: true
+             height: 48
+-            color: root.testResult.startsWith("[成功]") ? Theme.successLight :
+-                   root.testResult.startsWith("[失败]") ? Theme.errorLight :
+-                   root.testResult.startsWith("[错误]") ? Theme.errorLight : Theme.backgroundSecondary
+-            border.color: root.testResult.startsWith("[成功]") ? Theme.successBorder :
+-                          root.testResult.startsWith("[失败]") ? Theme.errorBorder :
+-                          root.testResult.startsWith("[错误]") ? Theme.errorBorder : Theme.divider
++            color: root.testResult.startsWith("[Listo]") ? Theme.successLight :
++                   root.testResult.startsWith("[Falló]") ? Theme.errorLight :
++                   root.testResult.startsWith("[Error]") ? Theme.errorLight : Theme.backgroundSecondary
++            border.color: root.testResult.startsWith("[Listo]") ? Theme.successBorder :
++                          root.testResult.startsWith("[Falló]") ? Theme.errorBorder :
++                          root.testResult.startsWith("[Error]") ? Theme.errorBorder : Theme.divider
+             radius: Theme.radiusMd
+             visible: root.testResult.length > 0 || root.cameraTesting
+ 
+@@ -317,11 +317,11 @@ ScrollView {
+ 
+                 Text {
+                     Layout.fillWidth: true
+-                    text: root.cameraTesting ? "正在测试摄像头..." : root.testResult
++                    text: root.cameraTesting ? "Probando la cámara..." : root.testResult
+                     font.pixelSize: Theme.fontSizeSm
+-                    color: root.testResult.startsWith("[成功]") ? Theme.success :
+-                           root.testResult.startsWith("[失败]") ? Theme.error :
+-                           root.testResult.startsWith("[错误]") ? Theme.error : Theme.textSecondary
++                    color: root.testResult.startsWith("[Listo]") ? Theme.success :
++                           root.testResult.startsWith("[Falló]") ? Theme.error :
++                           root.testResult.startsWith("[Error]") ? Theme.error : Theme.textSecondary
+                     elide: Text.ElideRight
+                 }
+             }
+@@ -330,7 +330,7 @@ ScrollView {
+         // 提示信息
+         Text {
+             Layout.fillWidth: true
+-            text: "摄像头用于视觉识别功能。如需使用本地 VL 模型，请配置 API 地址和密钥。"
++            text: "La cámara se usa para el reconocimiento visual. Para un modelo de visión propio, poné la dirección de la API y la clave."
+             font.pixelSize: Theme.fontSizeSm
+             color: Theme.textPlaceholder
+             wrapMode: Text.WordWrap
+diff --git a/src/ui/gui/qml/windows/settings/McpToolsTab.qml b/src/ui/gui/qml/windows/settings/McpToolsTab.qml
+index 40a08b5..36de607 100644
+--- a/src/ui/gui/qml/windows/settings/McpToolsTab.qml
++++ b/src/ui/gui/qml/windows/settings/McpToolsTab.qml
+@@ -97,7 +97,7 @@ ScrollView {
+         spacing: Theme.spacingLg
+ 
+         Text {
+-            text: "MCP 工具"
++            text: "Herramientas MCP"
+             font.pixelSize: Theme.fontSizeXl
+             font.weight: Font.DemiBold
+             color: Theme.textPrimary
+@@ -105,7 +105,7 @@ ScrollView {
+ 
+         Text {
+             Layout.fillWidth: true
+-            text: "控制哪些工具暴露给服务端。关闭后不出现在 tools/list，也无法调用。保存后若已连接将自动重连以更新列表。"
++            text: "Elegí qué herramientas ve el servidor. Las apagadas no aparecen ni se pueden usar. Al guardar se reconecta para actualizar la lista."
+             font.pixelSize: Theme.fontSizeXs
+             color: Theme.textSecondary
+             wrapMode: Text.WordWrap
+@@ -141,14 +141,14 @@ ScrollView {
+                     Item { Layout.fillWidth: true }
+ 
+                     GroupActionButton {
+-                        text: "全开"
++                        text: "Todas"
+                         onClicked: {
+                             if (settingsModel)
+                                 settingsModel.setMcpToolGroupEnabled(groupBlock.modelData.group, true)
+                         }
+                     }
+                     GroupActionButton {
+-                        text: "全关"
++                        text: "Ninguna"
+                         onClicked: {
+                             if (settingsModel)
+                                 settingsModel.setMcpToolGroupEnabled(groupBlock.modelData.group, false)
+diff --git a/src/ui/gui/qml/windows/settings/MusicTab.qml b/src/ui/gui/qml/windows/settings/MusicTab.qml
+index 056c1cb..3a52c47 100644
+--- a/src/ui/gui/qml/windows/settings/MusicTab.qml
++++ b/src/ui/gui/qml/windows/settings/MusicTab.qml
+@@ -14,7 +14,7 @@ ScrollView {
+         spacing: Theme.spacingLg
+ 
+         Text {
+-            text: "音乐配置"
++            text: "Música"
+             font.pixelSize: Theme.fontSizeXl
+             font.weight: Font.DemiBold
+             color: Theme.textPrimary
+@@ -26,7 +26,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "API 设置"
++                text: "API"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -39,7 +39,7 @@ ScrollView {
+                 columnSpacing: Theme.spacingLg
+ 
+                 Text {
+-                    text: "搜索 API"
++                    text: "API de búsqueda"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 120
+@@ -51,7 +51,7 @@ ScrollView {
+                     // 边改边写回；只靠 editingFinished 时点保存常写不上空串
+                     onTextEdited: if (settingsModel) settingsModel.musicSearchUrl = text
+                     onEditingFinished: if (settingsModel) settingsModel.musicSearchUrl = text
+-                    placeholderText: "留空使用默认酷我搜索 API"
++                    placeholderText: "Vacío = API de búsqueda Kuwo predeterminada"
+                     font.pixelSize: Theme.fontSizeSm
+                     background: Rectangle {
+                         radius: Theme.radiusSm
+@@ -61,7 +61,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "直链 API"
++                    text: "API de enlace directo"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 120
+@@ -72,7 +72,7 @@ ScrollView {
+                     text: settingsModel ? settingsModel.musicUrlApi : ""
+                     onTextEdited: if (settingsModel) settingsModel.musicUrlApi = text
+                     onEditingFinished: if (settingsModel) settingsModel.musicUrlApi = text
+-                    placeholderText: "留空使用默认 lx-music-api"
++                    placeholderText: "Vacío = lx-music-api predeterminada"
+                     font.pixelSize: Theme.fontSizeSm
+                     background: Rectangle {
+                         radius: Theme.radiusSm
+@@ -93,7 +93,7 @@ ScrollView {
+                     text: settingsModel ? settingsModel.musicUrlApiKey : ""
+                     onTextEdited: if (settingsModel) settingsModel.musicUrlApiKey = text
+                     onEditingFinished: if (settingsModel) settingsModel.musicUrlApiKey = text
+-                    placeholderText: "留空使用默认 Key"
++                    placeholderText: "Vacío = clave predeterminada"
+                     font.pixelSize: Theme.fontSizeSm
+                     background: Rectangle {
+                         radius: Theme.radiusSm
+@@ -104,7 +104,7 @@ ScrollView {
+             }
+ 
+             Text {
+-                text: "搜索 API 使用酷我官方接口，直链 API 用于获取播放地址（需配合 API Key）"
++                text: "La API de búsqueda usa Kuwo; la de enlace directo da la dirección de reproducción (necesita clave de API)"
+                 font.pixelSize: Theme.fontSizeXs
+                 color: Theme.textPlaceholder
+                 wrapMode: Text.WordWrap
+@@ -124,7 +124,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "播放偏好"
++                text: "Preferencias de reproducción"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -137,7 +137,7 @@ ScrollView {
+                 columnSpacing: Theme.spacingLg
+ 
+                 Text {
+-                    text: "默认音质"
++                    text: "Calidad predeterminada"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 120
+diff --git a/src/ui/gui/qml/windows/settings/ShortcutsTab.qml b/src/ui/gui/qml/windows/settings/ShortcutsTab.qml
+index cdba537..8857e5e 100644
+--- a/src/ui/gui/qml/windows/settings/ShortcutsTab.qml
++++ b/src/ui/gui/qml/windows/settings/ShortcutsTab.qml
+@@ -15,7 +15,7 @@ ScrollView {
+ 
+         // 页面标题
+         Text {
+-            text: "快捷键设置"
++            text: "Atajos de teclado"
+             font.pixelSize: Theme.fontSizeXl
+             font.weight: Font.DemiBold
+             color: Theme.textPrimary
+@@ -27,7 +27,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "基本设置"
++                text: "Ajustes básicos"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -38,7 +38,7 @@ ScrollView {
+                 spacing: Theme.spacingMd
+ 
+                 Text {
+-                    text: "启用全局快捷键"
++                    text: "Activar atajos globales"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                 }
+@@ -67,7 +67,7 @@ ScrollView {
+             enabled: settingsModel ? settingsModel.shortcutsEnabled : false
+ 
+             Text {
+-                text: "快捷键配置"
++                text: "Configuración de atajos"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -79,7 +79,7 @@ ScrollView {
+                 spacing: Theme.spacingMd
+ 
+                 Text {
+-                    text: "按住说话"
++                    text: "Mantener para hablar"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textPrimary
+                     Layout.preferredWidth: 80
+@@ -121,7 +121,7 @@ ScrollView {
+ 
+                 Text {
+                     Layout.fillWidth: true
+-                    text: "长按录音"
++                    text: "Mantener para grabar"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textPlaceholder
+                 }
+@@ -135,7 +135,7 @@ ScrollView {
+                 spacing: Theme.spacingMd
+ 
+                 Text {
+-                    text: "自动对话"
++                    text: "Modo automático"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textPrimary
+                     Layout.preferredWidth: 80
+@@ -177,7 +177,7 @@ ScrollView {
+ 
+                 Text {
+                     Layout.fillWidth: true
+-                    text: "开启/关闭自动对话"
++                    text: "Activar/desactivar el modo automático"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textPlaceholder
+                 }
+@@ -191,7 +191,7 @@ ScrollView {
+                 spacing: Theme.spacingMd
+ 
+                 Text {
+-                    text: "中断对话"
++                    text: "Interrumpir conversación"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textPrimary
+                     Layout.preferredWidth: 80
+@@ -233,7 +233,7 @@ ScrollView {
+ 
+                 Text {
+                     Layout.fillWidth: true
+-                    text: "立即停止当前对话"
++                    text: "Detener ya la conversación"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textPlaceholder
+                 }
+@@ -247,7 +247,7 @@ ScrollView {
+                 spacing: Theme.spacingMd
+ 
+                 Text {
+-                    text: "切换模式"
++                    text: "Cambiar modo"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textPrimary
+                     Layout.preferredWidth: 80
+@@ -289,7 +289,7 @@ ScrollView {
+ 
+                 Text {
+                     Layout.fillWidth: true
+-                    text: "手动/自动模式切换"
++                    text: "Cambiar entre modo manual y automático"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textPlaceholder
+                 }
+@@ -303,7 +303,7 @@ ScrollView {
+                 spacing: Theme.spacingMd
+ 
+                 Text {
+-                    text: "显示/隐藏"
++                    text: "Mostrar/ocultar"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textPrimary
+                     Layout.preferredWidth: 80
+@@ -345,7 +345,7 @@ ScrollView {
+ 
+                 Text {
+                     Layout.fillWidth: true
+-                    text: "切换主窗口可见性"
++                    text: "Mostrar u ocultar la ventana principal"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textPlaceholder
+                 }
+@@ -362,7 +362,7 @@ ScrollView {
+         // 提示信息
+         Text {
+             Layout.fillWidth: true
+-            text: "快捷键在全局范围内有效，请确保不与系统或其他应用的快捷键冲突。"
++            text: "Los atajos funcionan en todo Windows: revisá que no choquen con los de otros programas."
+             font.pixelSize: Theme.fontSizeSm
+             color: Theme.textPlaceholder
+             wrapMode: Text.WordWrap
+diff --git a/src/ui/gui/qml/windows/settings/SystemOptionsTab.qml b/src/ui/gui/qml/windows/settings/SystemOptionsTab.qml
+index af67718..ef4c558 100644
+--- a/src/ui/gui/qml/windows/settings/SystemOptionsTab.qml
++++ b/src/ui/gui/qml/windows/settings/SystemOptionsTab.qml
+@@ -15,7 +15,7 @@ ScrollView {
+ 
+         // 页面标题
+         Text {
+-            text: "系统选项"
++            text: "Sistema"
+             font.pixelSize: Theme.fontSizeXl
+             font.weight: Font.DemiBold
+             color: Theme.textPrimary
+@@ -28,7 +28,7 @@ ScrollView {
+ 
+             // 区域标题
+             Text {
+-                text: "基本信息"
++                text: "Información básica"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -42,7 +42,7 @@ ScrollView {
+                 columnSpacing: Theme.spacingLg
+ 
+                 Text {
+-                    text: "客户端 ID"
++                    text: "ID del cliente"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -52,7 +52,7 @@ ScrollView {
+                     Layout.fillWidth: true
+                     text: settingsModel ? settingsModel.clientId : ""
+                     onEditingFinished: if (settingsModel) settingsModel.clientId = text
+-                    placeholderText: "自动生成"
++                    placeholderText: "Generar automáticamente"
+                     font.pixelSize: Theme.fontSizeSm
+                     background: Rectangle {
+                         radius: Theme.radiusSm
+@@ -62,7 +62,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "设备 ID"
++                    text: "ID del dispositivo"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -72,7 +72,7 @@ ScrollView {
+                     Layout.fillWidth: true
+                     text: settingsModel ? settingsModel.deviceId : ""
+                     onEditingFinished: if (settingsModel) settingsModel.deviceId = text
+-                    placeholderText: "自动生成"
++                    placeholderText: "Generar automáticamente"
+                     font.pixelSize: Theme.fontSizeSm
+                     background: Rectangle {
+                         radius: Theme.radiusSm
+@@ -97,7 +97,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "回声消除"
++                text: "Cancelación de eco"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -110,7 +110,7 @@ ScrollView {
+                 columnSpacing: Theme.spacingLg
+ 
+                 Text {
+-                    text: "启用"
++                    text: "Activar"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -122,7 +122,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "音乐并行播放"
++                    text: "Música simultánea"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -136,7 +136,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "延迟补偿帧数"
++                    text: "Tramas de compensación de retardo"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -154,7 +154,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "噪声抑制预处理"
++                    text: "Reducción de ruido"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -170,7 +170,7 @@ ScrollView {
+ 
+             Text {
+                 Layout.fillWidth: true
+-                text: "消除本应用 TTS/音乐的回声，启用后进入实时对话模式；音乐并行=TTS 播放时音乐闪避不暂停；延迟补偿=40ms+N×协议帧长，蓝牙设备可适当调大。修改后重启生效。"
++                text: "Quita el eco de la voz y la música de MongoBot; al activarla pasa a conversación en tiempo real. Música simultánea: la música baja de volumen en vez de pausarse cuando habla. Compensación de retardo = 40 ms + N tramas (subila con audífonos Bluetooth). Se aplica al reiniciar."
+                 font.pixelSize: Theme.fontSizeXs
+                 color: Theme.textSecondary
+                 wrapMode: Text.WordWrap
+@@ -190,7 +190,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "网络配置"
++                text: "Red"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -223,7 +223,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "访问令牌"
++                    text: "Token de acceso"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -237,7 +237,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "OTA 版本 URL"
++                    text: "URL de versión OTA"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -256,7 +256,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "授权 URL"
++                    text: "URL de autorización"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -275,7 +275,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "激活版本"
++                    text: "Versión de activación"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -306,7 +306,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "MQTT 配置"
++                text: "MQTT"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -319,7 +319,7 @@ ScrollView {
+                 columnSpacing: Theme.spacingLg
+ 
+                 Text {
+-                    text: "服务端点"
++                    text: "Punto de acceso del servicio"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -339,7 +339,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "客户端 ID"
++                    text: "ID del cliente"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -358,7 +358,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "用户名"
++                    text: "Usuario"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -377,7 +377,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "密码"
++                    text: "Contraseña"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -391,7 +391,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "发布主题"
++                    text: "Tema de publicación"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -410,7 +410,7 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "订阅主题"
++                    text: "Tema de suscripción"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -443,7 +443,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "数据目录"
++                text: "Carpeta de datos"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -451,7 +451,7 @@ ScrollView {
+ 
+             Text {
+                 Layout.fillWidth: true
+-                text: "配置文件仍在用户数据目录。点「选择」打开系统文件夹对话框；「默认」清空为系统默认。保存后下次启动会从旧目录复制到新路径。"
++                text: "La configuración sigue en la carpeta de datos. «Elegir» abre el selector de carpetas y «Predeterminado» vuelve a la ruta normal. Al volver a abrir se copia todo a la nueva ruta."
+                 font.pixelSize: Theme.fontSizeXs
+                 color: Theme.textSecondary
+                 wrapMode: Text.WordWrap
+@@ -462,7 +462,7 @@ ScrollView {
+                 Layout.fillWidth: true
+                 spacing: Theme.spacingSm
+                 Text {
+-                    text: "缓存目录"
++                    text: "Carpeta de caché"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -482,7 +482,7 @@ ScrollView {
+                     }
+                 }
+                 Button {
+-                    text: "选择"
++                    text: "Elegir"
+                     font.pixelSize: Theme.fontSizeSm
+                     Layout.preferredWidth: 64
+                     Layout.preferredHeight: 32
+@@ -506,7 +506,7 @@ ScrollView {
+                     }
+                 }
+                 Button {
+-                    text: "默认"
++                    text: "Predeterminado"
+                     font.pixelSize: Theme.fontSizeSm
+                     Layout.preferredWidth: 64
+                     Layout.preferredHeight: 32
+@@ -536,7 +536,7 @@ ScrollView {
+                 Layout.fillWidth: true
+                 spacing: Theme.spacingSm
+                 Text {
+-                    text: "日志目录"
++                    text: "Carpeta de registros"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -556,7 +556,7 @@ ScrollView {
+                     }
+                 }
+                 Button {
+-                    text: "选择"
++                    text: "Elegir"
+                     font.pixelSize: Theme.fontSizeSm
+                     Layout.preferredWidth: 64
+                     Layout.preferredHeight: 32
+@@ -580,7 +580,7 @@ ScrollView {
+                     }
+                 }
+                 Button {
+-                    text: "默认"
++                    text: "Predeterminado"
+                     font.pixelSize: Theme.fontSizeSm
+                     Layout.preferredWidth: 64
+                     Layout.preferredHeight: 32
+@@ -610,7 +610,7 @@ ScrollView {
+                 Layout.fillWidth: true
+                 spacing: Theme.spacingSm
+                 Text {
+-                    text: "音乐缓存"
++                    text: "Caché de música"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -630,7 +630,7 @@ ScrollView {
+                     }
+                 }
+                 Button {
+-                    text: "选择"
++                    text: "Elegir"
+                     font.pixelSize: Theme.fontSizeSm
+                     Layout.preferredWidth: 64
+                     Layout.preferredHeight: 32
+@@ -654,7 +654,7 @@ ScrollView {
+                     }
+                 }
+                 Button {
+-                    text: "默认"
++                    text: "Predeterminado"
+                     font.pixelSize: Theme.fontSizeSm
+                     Layout.preferredWidth: 64
+                     Layout.preferredHeight: 32
+@@ -684,7 +684,7 @@ ScrollView {
+                 Layout.fillWidth: true
+                 spacing: Theme.spacingSm
+                 Text {
+-                    text: "唤醒词目录"
++                    text: "Carpeta de palabras de activación"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -704,7 +704,7 @@ ScrollView {
+                     }
+                 }
+                 Button {
+-                    text: "选择"
++                    text: "Elegir"
+                     font.pixelSize: Theme.fontSizeSm
+                     Layout.preferredWidth: 64
+                     Layout.preferredHeight: 32
+@@ -728,7 +728,7 @@ ScrollView {
+                     }
+                 }
+                 Button {
+-                    text: "默认"
++                    text: "Predeterminado"
+                     font.pixelSize: Theme.fontSizeSm
+                     Layout.preferredWidth: 64
+                     Layout.preferredHeight: 32
+@@ -758,7 +758,7 @@ ScrollView {
+                 Layout.fillWidth: true
+                 spacing: Theme.spacingSm
+                 Text {
+-                    text: "MCP 插件目录"
++                    text: "Carpeta de complementos MCP"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 100
+@@ -778,7 +778,7 @@ ScrollView {
+                     }
+                 }
+                 Button {
+-                    text: "选择"
++                    text: "Elegir"
+                     font.pixelSize: Theme.fontSizeSm
+                     Layout.preferredWidth: 64
+                     Layout.preferredHeight: 32
+@@ -802,7 +802,7 @@ ScrollView {
+                     }
+                 }
+                 Button {
+-                    text: "默认"
++                    text: "Predeterminado"
+                     font.pixelSize: Theme.fontSizeSm
+                     Layout.preferredWidth: 64
+                     Layout.preferredHeight: 32
+diff --git a/src/ui/gui/qml/windows/settings/WakeWordTab.qml b/src/ui/gui/qml/windows/settings/WakeWordTab.qml
+index 7aedb6b..a43149a 100644
+--- a/src/ui/gui/qml/windows/settings/WakeWordTab.qml
++++ b/src/ui/gui/qml/windows/settings/WakeWordTab.qml
+@@ -15,7 +15,7 @@ ScrollView {
+ 
+         // 页面标题
+         Text {
+-            text: "唤醒词设置"
++            text: "Palabra de activación"
+             font.pixelSize: Theme.fontSizeXl
+             font.weight: Font.DemiBold
+             color: Theme.textPrimary
+@@ -27,7 +27,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "唤醒词"
++                text: "Palabra de activación"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -39,7 +39,7 @@ ScrollView {
+                 spacing: Theme.spacingMd
+ 
+                 Text {
+-                    text: "启用唤醒词"
++                    text: "Activar palabra de activación"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                 }
+@@ -64,7 +64,7 @@ ScrollView {
+                 spacing: Theme.spacingMd
+ 
+                 Text {
+-                    text: "唤醒词"
++                    text: "Palabra de activación"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 80
+@@ -75,7 +75,7 @@ ScrollView {
+                     Layout.fillWidth: true
+                     text: settingsModel ? settingsModel.wakeWord : ""
+                     onTextChanged: if (settingsModel && text !== settingsModel.wakeWord) settingsModel.wakeWord = text
+-                    placeholderText: "输入唤醒词，如「小智」或「Hey Jarvis」"
++                    placeholderText: "Escribí la palabra de activación, por ejemplo «MongoBot» o «Hey Jarvis»"
+                     font.pixelSize: Theme.fontSizeSm
+                     background: Rectangle {
+                         radius: Theme.radiusSm
+@@ -95,7 +95,7 @@ ScrollView {
+                     Text {
+                         id: langLabel
+                         anchors.centerIn: parent
+-                        text: settingsModel && settingsModel.wakeWordLang === "zh" ? "中文" : "English"
++                        text: settingsModel && settingsModel.wakeWordLang === "zh" ? "Chino" : "English"
+                         font.pixelSize: Theme.fontSizeXs
+                         color: settingsModel && settingsModel.wakeWordLang === "zh" ? Theme.primary : Theme.success
+                     }
+@@ -119,7 +119,7 @@ ScrollView {
+                     spacing: Theme.spacingXs
+ 
+                     Text {
+-                        text: "转换预览"
++                        text: "Vista previa de la conversión"
+                         font.pixelSize: Theme.fontSizeXs
+                         color: Theme.textPlaceholder
+                     }
+@@ -142,7 +142,7 @@ ScrollView {
+                 Item { Layout.fillWidth: true }
+ 
+                 Button {
+-                    text: "保存唤醒词"
++                    text: "Guardar palabra de activación"
+                     implicitHeight: 36
+                     implicitWidth: 120
+ 
+@@ -178,7 +178,7 @@ ScrollView {
+             spacing: Theme.spacingMd
+ 
+             Text {
+-                text: "检测参数"
++                text: "Parámetros de detección"
+                 font.pixelSize: Theme.fontSizeMd
+                 font.weight: Font.Medium
+                 color: Theme.textSecondary
+@@ -192,7 +192,7 @@ ScrollView {
+ 
+                 // 线程数
+                 Text {
+-                    text: "线程数"
++                    text: "Hilos"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 80
+@@ -208,14 +208,14 @@ ScrollView {
+                 }
+ 
+                 Text {
+-                    text: "建议设置为 CPU 核心数"
++                    text: "Recomendado: la cantidad de núcleos del CPU"
+                     font.pixelSize: Theme.fontSizeXs
+                     color: Theme.textPlaceholder
+                 }
+ 
+                 // 关键词得分
+                 Text {
+-                    text: "关键词得分"
++                    text: "Puntaje de palabra clave"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 80
+@@ -240,7 +240,7 @@ ScrollView {
+ 
+                 // 关键词阈值
+                 Text {
+-                    text: "关键词阈值"
++                    text: "Umbral de palabra clave"
+                     font.pixelSize: Theme.fontSizeSm
+                     color: Theme.textSecondary
+                     Layout.preferredWidth: 80
+@@ -275,7 +275,7 @@ ScrollView {
+         // 提示信息
+         Text {
+             Layout.fillWidth: true
+-            text: "支持中文和英文唤醒词。中文会自动转换为拼音格式，英文使用 BPE 分词。得分越高越严格，阈值越低越敏感。"
++            text: "Acepta palabras de activación en chino e inglés. Puntaje más alto = más estricto; umbral más bajo = más sensible."
+             font.pixelSize: Theme.fontSizeSm
+             color: Theme.textPlaceholder
+             wrapMode: Text.WordWrap
 diff --git a/src/ui/gui/services/tray_service.py b/src/ui/gui/services/tray_service.py
 index a2d78b4..73e31b8 100644
 --- a/src/ui/gui/services/tray_service.py
