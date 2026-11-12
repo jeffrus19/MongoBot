@@ -192,10 +192,11 @@ class Lienzo:
         img = self.img
         cw, ch = img.size
         if self.zoom != 1.0:
+            # agranda alrededor de zoom_c dejando ese punto quieto (no lo lleva al centro)
             w, h = cw / self.zoom, ch / self.zoom
-            zx = min(max(self.zoom_c[0] * SS, w / 2), cw - w / 2)
-            zy = min(max((self.zoom_c[1] + self.oy) * SS, h / 2), ch - h / 2)
-            img = img.crop((int(zx - w / 2), int(zy - h / 2), int(zx + w / 2), int(zy + h / 2))).resize((cw, ch))
+            zx, zy = self.zoom_c[0] * SS, (self.zoom_c[1] + self.oy) * SS
+            x0, y0 = zx - zx / self.zoom, zy - zy / self.zoom
+            img = img.crop((int(x0), int(y0), int(x0 + w), int(y0 + h))).resize((cw, ch))
         if not VERTICAL:
             return img.resize((W, H), Image.LANCZOS)
         x0 = (CX + self.ox - PW / 2) * SS

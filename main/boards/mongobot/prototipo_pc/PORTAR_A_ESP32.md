@@ -120,7 +120,9 @@ respetar estas reglas, porque cada una corrigió un error real:
    lienzo de 320x320, y al final se recorta la franja de 240 de ancho. Cada animación
    tiene su encuadre en `fuentes_minimal/encuadre_vertical.json` (dx: corrimiento del
    recorte, ±40 como máximo para no cortar la cabeza; dy: subir o bajar la escena), que
-   calcula `encuadre_vertical.py` mirando dónde hay dibujo, más algunos ajustes a mano.
+   calcula `encuadre_vertical.py`: la cabeza queda siempre a la misma altura (centro en
+   y=150 de 320) salvo las que necesitan otro lugar (cúpula de conversación, juego sin
+   conexión, temporada, ejercicio, videojuego).
    En vertical la cúpula de conversación se acerca un poco (zoom 1,12) y sale desde el
    borde de abajo, y los globitos salen encima de la cabeza en vez de a los lados.
    En LVGL: pantalla en orientación vertical (rotación del ILI9341/ST7789) y cada

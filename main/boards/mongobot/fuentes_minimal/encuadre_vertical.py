@@ -4,8 +4,9 @@ Mira en qué parte del lienzo horizontal de siempre (320x240) hay dibujo a lo la
 bucle y elige:
 - VERT_DX: cuánto correr el recorte de 240 de ancho para que entren los adornos de los
   lados (máximo ±40 px, así la cabeza siempre queda completa);
-- VERT_DY: cuánto subir o bajar la escena: lo que arranca desde el borde de abajo (la
-  cúpula de conversación, la mano del saludo) queda pegado abajo; lo demás, centrado.
+- VERT_DY: cuánto subir o bajar la escena para que la cabeza quede SIEMPRE a la misma
+  altura (CABEZA_Y en la pantalla), salvo que eso deje afuera algún adorno; lo que
+  necesita otro lugar va en AJUSTES (la cúpula de conversación sale desde abajo).
 Guarda el resultado en encuadre_vertical.json, que lee mongo_minimal.
 Uso: python encuadre_vertical.py
 """
@@ -47,6 +48,24 @@ AJUSTES = {
 }
 
 
+CABEZA_Y = 150          # altura del centro de la cabeza en la pantalla vertical (de 320)
+
+
+def centro_cabeza(im):
+    """Altura del centro del aro blanco: la mancha más grande de color ARO, medida por su
+    borde de arriba y de abajo (así no la mueve hacia dónde mira la cara de adentro)."""
+    from scipy import ndimage
+
+    a = np.asarray(im.convert("RGB")).astype(int)
+    m = (np.abs(a - np.array(mm.ARO)).max(axis=2) <= 12)
+    etiquetas, n = ndimage.label(m)
+    if not n:
+        return None
+    tam = ndimage.sum(m, etiquetas, range(1, n + 1))
+    ys = np.nonzero(etiquetas == (int(np.argmax(tam)) + 1))[0]
+    return (ys.min() + ys.max()) / 2
+
+
 def caja(im):
     a = np.asarray(im.convert("L"))
     ys, xs = np.nonzero(a > 24)
@@ -57,8 +76,10 @@ def caja(im):
 
 def calcular(fn, dur, muestras=16):
     mm.VERTICAL = False
-    cajas = [c for c in (caja(fn(dur * i / muestras)) for i in range(muestras)) if c]
+    imgs = [fn(dur * i / muestras) for i in range(muestras)]
     mm.VERTICAL = True
+    cajas = [c for c in (caja(im) for im in imgs) if c]
+    centros = [c for c in (centro_cabeza(im) for im in imgs) if c is not None]
     izq = min(c[0] for c in cajas)
     der = max(c[1] for c in cajas)
     arriba = statistics.median(c[2] for c in cajas)
@@ -70,14 +91,12 @@ def calcular(fn, dur, muestras=16):
     else:
         centro = (izq + der) / 2
     dx = max(-40, min(40, round(centro - mm.CX)))
-    # vertical: pegado abajo si sale desde el borde, si no centrado
+    # vertical: la cabeza siempre a la misma altura (CABEZA_Y)
     extra = 2 * mm.VERT_Y                       # 80 px más de alto que el lienzo original
-    if abajo >= mm.H - 4:
-        oy = extra
-    elif arriba <= 3:
-        oy = 0
-    else:
-        oy = max(0, min(extra, round(mm.PH / 2 - (arriba + abajo) / 2)))
+    cy = statistics.median(centros) if centros else mm.CY
+    oy = CABEZA_Y - cy
+    oy = max(-arriba, min(mm.PH - 1 - abajo, oy))   # sin dejar afuera lo que se ve casi siempre
+    oy = max(0, min(extra + 60, round(oy)))
     return dx, oy - mm.VERT_Y
 
 

@@ -1,111 +1,111 @@
 {
  "neutral": {
   "dx": 0,
-  "dy": 0
+  "dy": -14
  },
  "happy": {
   "dx": 0,
-  "dy": 7
+  "dy": -8
  },
  "laughing": {
   "dx": 0,
-  "dy": 4
+  "dy": -11
  },
  "funny": {
   "dx": 0,
-  "dy": 0
+  "dy": -14
  },
  "sad": {
   "dx": 0,
-  "dy": -4
+  "dy": -19
  },
  "crying": {
   "dx": 0,
-  "dy": -19
+  "dy": -18
  },
  "angry": {
   "dx": 0,
-  "dy": 4
+  "dy": -14
  },
  "loving": {
   "dx": 0,
-  "dy": 0
+  "dy": -14
  },
  "embarrassed": {
   "dx": 0,
-  "dy": -2
+  "dy": -16
  },
  "surprised": {
   "dx": 0,
-  "dy": 10
+  "dy": -8
  },
  "shocked": {
   "dx": 0,
-  "dy": 6
+  "dy": -14
  },
  "thinking": {
   "dx": 28,
-  "dy": 18
+  "dy": -14
  },
  "winking": {
   "dx": 5,
-  "dy": 0
+  "dy": -14
  },
  "cool": {
   "dx": 0,
-  "dy": 0
+  "dy": -14
  },
  "relaxed": {
   "dx": 0,
-  "dy": 0
+  "dy": -14
  },
  "delicious": {
   "dx": 0,
-  "dy": 0
+  "dy": -14
  },
  "kissy": {
   "dx": 0,
-  "dy": 0
+  "dy": -14
  },
  "confident": {
   "dx": 5,
-  "dy": 0
+  "dy": -14
  },
  "sleepy": {
   "dx": 26,
-  "dy": 16
+  "dy": -18
  },
  "silly": {
   "dx": 0,
-  "dy": 4
+  "dy": -10
  },
  "confused": {
   "dx": 11,
-  "dy": 12
+  "dy": -14
  },
  "excited": {
   "dx": 0,
-  "dy": 7
+  "dy": -8
  },
  "smug": {
   "dx": 0,
-  "dy": 0
+  "dy": -14
  },
  "terrified": {
   "dx": 0,
-  "dy": 0
+  "dy": -14
  },
  "escuchando": {
   "dx": 0,
-  "dy": 0
+  "dy": -14
  },
  "musica": {
   "dx": 24,
-  "dy": 21
+  "dy": 6
  },
  "mirando": {
   "dx": 0,
-  "dy": 2
+  "dy": -12
  },
  "conversa_escucha": {
   "dx": 0,
@@ -117,15 +117,15 @@
  },
  "pensando": {
   "dx": 0,
-  "dy": -4
+  "dy": -14
  },
  "despertar": {
   "dx": 0,
-  "dy": -4
+  "dy": -14
  },
  "conectando": {
   "dx": 0,
-  "dy": -2
+  "dy": -40
  },
  "sin_conexion": {
   "dx": 0,
@@ -133,146 +133,146 @@
  },
  "saludo": {
   "dx": 34,
-  "dy": -12
+  "dy": -14
  },
  "alarma": {
   "dx": 0,
-  "dy": -6
+  "dy": -16
  },
  "temporizador": {
   "dx": 0,
-  "dy": -4
+  "dy": -14
  },
  "clima_sol": {
   "dx": 15,
-  "dy": 8
+  "dy": -20
  },
  "clima_nube": {
   "dx": 28,
-  "dy": 9
+  "dy": -28
  },
  "clima_lluvia": {
   "dx": -10,
-  "dy": 40
+  "dy": -2
  },
  "pomodoro_trabajo": {
   "dx": 17,
-  "dy": -8
+  "dy": -18
  },
  "pomodoro_descanso": {
   "dx": 18,
-  "dy": -6
+  "dy": -16
  },
  "presumido": {
   "dx": 0,
-  "dy": 9
+  "dy": -14
  },
  "llamando": {
   "dx": 17,
-  "dy": -12
+  "dy": -22
  },
  "tacto_cosquillas": {
   "dx": 0,
-  "dy": 5
+  "dy": -16
  },
  "tacto_molesto": {
   "dx": 0,
-  "dy": -40
+  "dy": -14
  },
  "tacto_despertar": {
   "dx": 0,
-  "dy": -4
+  "dy": -14
  },
  "leyendo": {
   "dx": 0,
-  "dy": -10
+  "dy": -20
  },
  "rodar_ojos": {
   "dx": 0,
-  "dy": -4
+  "dy": -14
  },
  "esceptico": {
   "dx": 0,
-  "dy": -4
+  "dy": -14
  },
  "ofendido": {
   "dx": 0,
-  "dy": 2
+  "dy": -8
  },
  "furioso": {
   "dx": 0,
-  "dy": 3
+  "dy": -16
  },
  "eureka": {
   "dx": 0,
-  "dy": -40
+  "dy": -28
  },
  "picaro": {
   "dx": 0,
-  "dy": -4
+  "dy": -14
  },
  "ignorando": {
   "dx": 0,
-  "dy": -4
+  "dy": -14
  },
  "orgulloso": {
   "dx": 0,
-  "dy": 4
+  "dy": -18
  },
  "curioso": {
   "dx": 0,
-  "dy": -4
+  "dy": -14
  },
  "aburrido": {
   "dx": 0,
-  "dy": -6
+  "dy": -16
  },
  "decepcionado": {
   "dx": 0,
-  "dy": -11
+  "dy": -21
  },
  "bostezo": {
   "dx": 0,
-  "dy": -3
+  "dy": -13
  },
  "recordatorio": {
   "dx": 14,
-  "dy": 1
+  "dy": -24
  },
  "mensaje": {
   "dx": 25,
-  "dy": 2
+  "dy": -8
  },
  "configurar_wifi": {
   "dx": 20,
-  "dy": -4
+  "dy": -14
  },
  "actualizando": {
   "dx": 0,
-  "dy": 16
+  "dy": -10
  },
  "volumen": {
   "dx": 0,
-  "dy": -4
+  "dy": -14
  },
  "anio_nuevo": {
   "dx": -4,
-  "dy": -3
+  "dy": -40
  },
  "navidad": {
   "dx": 0,
-  "dy": -2
+  "dy": -40
  },
  "guitarra": {
   "dx": 24,
-  "dy": -9
+  "dy": -19
  },
  "ejercicio": {
   "dx": 0,
-  "dy": 3
+  "dy": -11
  },
  "videojuego": {
   "dx": 30,
-  "dy": -7
+  "dy": 16
  }
 }
