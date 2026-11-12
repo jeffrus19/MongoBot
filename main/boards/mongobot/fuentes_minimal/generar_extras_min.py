@@ -565,6 +565,9 @@ def libro(L, x, y, hoja_u):
         hoja = [(x, y + 4), (x + lado * 53, y - 5), (x + lado * 53, y + 45), (x, y + 54)]
         L.poligono(hoja, HOJA)
     L.linea([(x, y + 4), (x, y + 54)], 2.0, (130, 18, 24))     # lomo
+    for lado in (-1, 1):                                       # bordes blancos
+        tapa = [(x, y), (x + lado * 59, y - 10), (x + lado * 59, y + 50), (x, y + 59)]
+        L.linea(tapa + [tapa[0]], 3.0, ARO)
     if 0 < hoja_u < 1:
         k = math.cos(math.pi * hoja_u)                          # 1 derecha -> -1 izquierda
         alto = 8 * (1 - abs(k))
