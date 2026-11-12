@@ -1,8 +1,8 @@
 diff --git a/src/mcp/mcp_server.py b/src/mcp/mcp_server.py
-index 6d8c492..9432502 100644
+index 6d8c492..903a1b8 100644
 --- a/src/mcp/mcp_server.py
 +++ b/src/mcp/mcp_server.py
-@@ -140,12 +140,17 @@ class McpServer:
+@@ -140,12 +140,20 @@ class McpServer:
              register_music_tools(common_tools.append, music_player)
  
          from src.mcp.tools.app import register_app_tools
@@ -17,6 +17,9 @@ index 6d8c492..9432502 100644
 +        from src.mcp.tools.alarmas import register_alarma_tools
 +
 +        register_alarma_tools(common_tools.append)  # MongoBot: alarmas y recordatorios
++        from src.mcp.tools.trafico import register_trafico_tools
++
++        register_trafico_tools(common_tools.append)  # MongoBot: tráfico en vivo (Google)
  
          preserved = [
              tool for tool in self.tools

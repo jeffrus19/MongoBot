@@ -15,6 +15,7 @@ de herramientas MCP**, así el texto de personalidad en xiaozhi.me no cambia.
 | `src/plugins/mongo_comportamiento.py` | Capa de comportamiento: elige la cara según la conversación (escuchando → cúpula, pensando, hablando → emoción o globitos, enojo repetido → furioso, despertar), el sistema (saludo, sin conexión) y la inactividad (aburrido, ejercicio, leyendo, guitarra y videojuego según su horario, llamando, bostezo, dormir, temporada). Es lógica pura con reloj inyectable: se pasa casi tal cual a C++. |
 | `src/mcp/tools/alarmas/register.py` | Herramientas `self.alarm.set_alarm`, `set_timer`, `set_reminder`, `list_alarms`, `cancel_alarm`, `stop_ringing`. |
 | `src/mcp/tools/weather/service.py` | Clima real con Open-Meteo (sin clave). Por defecto San José, Costa Rica; muestra clima_sol, clima_nube o clima_lluvia 10 s según el código WMO. |
+| `src/mcp/tools/trafico/` | Herramienta `self.traffic.check(destination, origin)`: tráfico en vivo con la Routes API de Google (computeRoutes, TRAFFIC_AWARE). Origen por defecto: Sabanilla. Devuelve la mejor ruta (vía, minutos con y sin tráfico, atraso, km, nivel: fluido/moderado/pesado/muy pesado) y las alternativas. La clave va en `mongobot_claves.json` (fuera de git). En la placa: la misma llamada HTTPS con `esp_http_client` y la clave en NVS. |
 | Cambios en `ui_presenter.py`, `ui.py`, `mcp_server.py`, `volume/register.py`, `weather/register.py` | Conectan lo anterior (marcados con el comentario `# MongoBot`). |
 
 ## Equivalencias en el firmware (XiaoZhi, C++)
