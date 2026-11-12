@@ -17,7 +17,7 @@ Sistema
 
 Inactividad (sin que le hablés)
 - 0 a 60 s              -> neutral (o la cara de temporada en diciembre)
-- a los 60 s            -> aburrido, y luego alterna ejercicio y videojuego, con ratos de
+- a los 60 s            -> aburrido, y luego alterna ejercicio, videojuego y leyendo, con ratos de
                            "mirando" entre una y otra; cada tanto toca el vidrio para
                            llamarte (llamando) y te dice algo. La guitarra solo entra en la
                            rotación sábados y domingos de 10:00 a 17:00, a volumen moderado
@@ -54,7 +54,7 @@ DESPERTAR = 1.4
 ENOJO_VENTANA = 120
 ENOJO_VECES = 3
 
-ACTIVIDADES = ["ejercicio", "videojuego"]
+ACTIVIDADES = ["ejercicio", "videojuego", "leyendo"]
 GUITARRA_DIAS = (5, 6)          # sábado y domingo (lunes = 0)
 GUITARRA_HORAS = (10, 17)       # de 10:00 a 17:00
 FRASES_LLAMAR = [

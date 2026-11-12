@@ -89,7 +89,7 @@ async def main():
     for a, desc in [("saludo","al arrancar"),("aburrido","1 min sin hablarle"),("mirando","entre actividades"),
                     ("llamando","cada 3 actividades"),("bostezo","a los 10 min"),("sleepy","después del bostezo"),
                     ("guitarra","inactividad sábado 11:00"),("ejercicio","actividad de inactividad"),
-                    ("videojuego","actividad de inactividad")]:
+                    ("videojuego","actividad de inactividad"),("leyendo","actividad de inactividad")]:
         anotar(a, desc, a in vistas, f"min {vistas[a]/60:.1f}" if a in vistas else "no salió")
     # guitarra fuera de horario: no debe salir
     for cuando in (datetime(2026,11,12,11,0), datetime(2026,11,14,9,59), datetime(2026,11,15,17,0)):
@@ -97,7 +97,7 @@ async def main():
         c3 = mc.Comportamiento(vistas3.add, reloj=lambda: r3[0], hoy=lambda: cuando.date(), azar=random.Random(2), momento=lambda c=cuando: c)
         c3.inicio()
         for s in range(590): r3[0]=float(s); c3.tic()
-        anotar("ejercicio", f"sin guitarra el {cuando:%a %H:%M}", "guitarra" not in vistas3 and {"ejercicio","videojuego"} <= vistas3, ",".join(sorted(vistas3)))
+        anotar("ejercicio", f"sin guitarra el {cuando:%a %H:%M}", "guitarra" not in vistas3 and {"ejercicio","videojuego","leyendo"} <= vistas3, ",".join(sorted(vistas3)))
     for d, a in [(date(2026,12,20),"navidad"),(date(2026,12,31),"anio_nuevo")]:
         vistas2=[]; r2=[0.0]
         c2 = mc.Comportamiento(vistas2.append, reloj=lambda: r2[0], hoy=lambda d=d: d); c2.inicio()
