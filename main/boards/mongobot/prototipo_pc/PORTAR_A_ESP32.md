@@ -139,6 +139,12 @@ respetar estas reglas, porque cada una corrigió un error real:
    lloviendo o con 50 % o más de probabilidad de lluvia en las próximas 3 horas (o en
    el día, si es pronóstico) -> clima_lluvia.
 
+20. **"Pon / coloca / programa una alarma a las ...":** si lo que dijiste pide una alarma
+   con hora y la IA termina de contestar sin haberla programado, la programa MongoBot
+   (`hora_de_alarma`: entiende 6:30, 7 pm, "6 y media de la tarde", "5 de la mañana";
+   sin am/pm toma la próxima vez que llegue esa hora). Si la IA sí la programó, no se
+   duplica; si no dijiste la hora, la IA pregunta.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

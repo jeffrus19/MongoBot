@@ -77,6 +77,39 @@ DESPERTAR = 1.4
 ENOJO_VENTANA = 120
 ENOJO_VECES = 3
 CONVERSA_VENTANA = 30     # segundos en reposo tras una respuesta en que sigue la conversación
+# "pon/coloca/programa una alarma a las 6:30": si la IA no la programa, la programa MongoBot
+PEDIR_ALARMA = re.compile(
+    r"\b(pon|ponme|poneme|pone|pon[eé]|coloca|colocame|coloc[aá]|programa|programame|program[aá]|"
+    r"crea|cre[aá]|activa|activ[aá]|ajusta|ajust[aá])\b[\w ]{0,12}?\balarma", re.IGNORECASE)
+HORA_ALARMA = re.compile(
+    r"\b(?:a|para)\s+las?\s+(\d{1,2})(?:(?::|\.|\s+y\s+)(\d{2}|media|cuarto))?"
+    r"\s*(a\.?\s?m\.?|p\.?\s?m\.?|de la ma[ñn]ana|de la tarde|de la noche|de la madrugada)?", re.IGNORECASE)
+
+
+def hora_de_alarma(texto: str, ahora: datetime | None = None) -> tuple[int, int] | None:
+    """'pon una alarma a las 6 y media de la tarde' -> (18, 30). Sin am/pm, la próxima."""
+    if not PEDIR_ALARMA.search(texto or ""):
+        return None
+    m = HORA_ALARMA.search(texto)
+    if not m:
+        return None
+    h = int(m.group(1))
+    mi = {"media": 30, "cuarto": 15}.get((m.group(2) or "").lower(), None)
+    mi = int(m.group(2)) if mi is None and m.group(2) else (mi or 0)
+    sufijo = (m.group(3) or "").lower().replace(".", "").replace(" ", "")
+    if not (0 <= h <= 23 and 0 <= mi <= 59):
+        return None
+    if sufijo.startswith("p") or "tarde" in sufijo or "noche" in sufijo:
+        h = h + 12 if h < 12 else h
+    elif sufijo.startswith("a") or "mañana" in sufijo or "manana" in sufijo or "madrugada" in sufijo:
+        h = 0 if h == 12 else h
+    elif h < 12:
+        ahora = ahora or datetime.now()             # sin am/pm: la próxima vez que llegue esa hora
+        if (ahora.hour, ahora.minute) >= (h, mi) and (ahora.hour, ahora.minute) < (h + 12, mi):
+            h += 12
+    return h, mi
+
+
 REVISAR_RED_CADA = 15      # segundos entre pruebas mientras está sin conexión
 # "dame un pompi" (choque de puños/cinco): saludo con su palmada. Incluye cómo lo
 # suele escribir el reconocimiento de voz.
@@ -128,6 +161,7 @@ class Comportamiento:
         self._dormido = False
         self._dormido_noche = False    # se durmió por la hora: a las 6:00 se levanta solo
         self._sin_red = False
+        self._alarma_pendiente = None
         self._por_revisar_red = False
         self._ultima_revision_red = float("-inf")
         self._fase = "reposo"          # reposo | aburrido | actividad | entre | llamando | bostezo | dormido
@@ -169,7 +203,12 @@ class Comportamiento:
             pass
 
     def _fin_de_respuesta(self) -> None:
-        """Terminó de contestar: se suelta la cara que solo acompañaba la respuesta (clima)."""
+        """Terminó de contestar: se suelta la cara que solo acompañaba la respuesta (clima)
+        y, si pediste una alarma que la IA no programó, se programa."""
+        try:
+            self._revisar_alarma_pendiente()
+        except Exception as e:                                   # noqa: BLE001
+            logger.error(f"[Comportamiento] alarma pendiente: {e}")
         try:
             from src.plugins import mongo_caras
 
@@ -311,6 +350,32 @@ class Comportamiento:
         if self.estado != "speaking":
             self._mostrar("pensando")
         self._clima_si_pregunta(texto)
+        self._alarma_si_pide(texto)
+
+    def _alarma_si_pide(self, texto: str) -> None:
+        """Recuerda el pedido de alarma; al terminar la respuesta se revisa si la IA la programó."""
+        hora = hora_de_alarma(texto, self._momento())
+        if hora is None:
+            return
+        from src.plugins import mongo_alarmas
+
+        mongo_alarmas._asegurar()
+        ultimo = max([it["id"] for it in mongo_alarmas._items], default=0)
+        self._alarma_pendiente = (hora, ultimo)
+        logger.info(f"[Comportamiento] pidió alarma a las {hora[0]:02d}:{hora[1]:02d}")
+
+    def _revisar_alarma_pendiente(self) -> None:
+        pend, self._alarma_pendiente = self._alarma_pendiente, None
+        if not pend:
+            return
+        (h, m), ultimo = pend
+        from src.plugins import mongo_alarmas
+
+        if any(it["id"] > ultimo for it in mongo_alarmas._items):
+            return                                    # la IA ya la programó
+        it = mongo_alarmas.programar("alarma", mongo_alarmas.proxima(h, m, []), hora=(h, m))
+        logger.info(f"[Comportamiento] la IA no programó la alarma: la programo yo ({mongo_alarmas.describir(it)})")
+        self._texto(f"Alarma programada para las {h:02d}:{m:02d}")
 
     def _clima_si_pregunta(self, texto: str) -> None:
         """Pregunta del clima: pone la animación del clima real, la use o no la IA."""

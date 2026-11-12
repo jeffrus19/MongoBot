@@ -95,7 +95,10 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
             "self.alarm.set_alarm",
             ("Set an alarm at a clock time (local time). When it rings, MongoBot shouts 'RING RING RING'.\n"
              + al_sonar +
-             "Use for: 'poneme una alarma a las 6:30', 'despertame a las 7', 'alarma de lunes a viernes a las 6'.\n"
+             "Use for: 'pon una alarma a las 6:30', 'coloca una alarma a las 7 pm', 'poneme una alarma a las 6:30', "
+             "'programá una alarma para las 5', 'despertame a las 7', 'alarma de lunes a viernes a las 6'. "
+             "When the user asks for an alarm and says a time, ALWAYS call this tool (never just say it is set); "
+             "if no time was given, ask for it.\n"
              "Parameters:\n- time: 'HH:MM' 24h, or '6:30 am' / '7 pm'.\n- " + dias_ayuda + "\n"
              "- label: optional short note (e.g. 'gimnasio')."),
             PropertyList([Property("time", PropertyType.STRING),
