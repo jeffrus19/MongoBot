@@ -103,7 +103,7 @@ def cuadro(t):
         for lado in (-1, 1):
             x0 = c.cx + lado * (c.rx + 12)
             for j, dy in enumerate((-14, 0, 14)):
-                L.linea([(x0, c.cy + dy), (x0 + lado * 9, c.cy + dy - 3 * (j - 1))], 3.5, col)
+                L.linea([(x0, c.cy + dy), (x0 + lado * 9, c.cy + dy + 3 * (j - 1))], 3.5, col)   # se abren hacia afuera
     return L.final()
 
 
