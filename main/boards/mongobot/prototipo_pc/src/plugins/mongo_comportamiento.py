@@ -17,10 +17,11 @@ Sistema
 
 Inactividad (sin que le hablés)
 - 0 a 60 s              -> neutral (o la cara de temporada en diciembre)
-- a los 60 s            -> aburrido, y luego una actividad al azar (guitarra con sonido,
-                           ejercicio, videojuego o leyendo), con ratos de "mirando" entre una
-                           y otra; cada tanto toca el vidrio para llamarte (llamando) y te
-                           dice algo
+- a los 60 s            -> aburrido, y luego alterna ejercicio y videojuego, con ratos de
+                           "mirando" entre una y otra; cada tanto toca el vidrio para
+                           llamarte (llamando) y te dice algo. La guitarra solo entra en la
+                           rotación sábados y domingos de 10:00 a 17:00, a volumen moderado
+                           (pedida con show_face toca siempre, a volumen normal)
 - a los 10 min          -> bostezo y se duerme (sleepy) hasta que le hablés
 
 Las caras pedidas con la herramienta show_face (mongo_caras) siguen mandando: mientras
@@ -33,7 +34,7 @@ import asyncio
 import random
 import time
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime
 
 from src.logging import get_logger
 
@@ -53,24 +54,27 @@ DESPERTAR = 1.4
 ENOJO_VENTANA = 120
 ENOJO_VECES = 3
 
-ACTIVIDADES = ["guitarra", "ejercicio", "videojuego", "leyendo"]
+ACTIVIDADES = ["ejercicio", "videojuego"]
+GUITARRA_DIAS = (5, 6)          # sábado y domingo (lunes = 0)
+GUITARRA_HORAS = (10, 17)       # de 10:00 a 17:00
 FRASES_LLAMAR = [
     "Diay, ¿me vas a dejar aquí solito?",
     "Mae, aquí sigo, guapísimo como siempre, por si te interesa.",
     "¿Sabías que el pulpo tiene tres corazones? Yo uno, pero bien bonito.",
     "Toc toc... ¿hay alguien ahí afuera?",
-    "Ya me aburrí de tocar guitarra solo. Hablame, ¿no?",
+    "Ya me aburrí de jugar solo. Hablame, ¿no?",
 ]
 
 
 class Comportamiento:
     def __init__(self, poner_cara: Callable[[str], None], poner_texto: Callable[[str], None] | None = None,
                  reloj: Callable[[], float] = time.monotonic, hoy: Callable[[], date] = date.today,
-                 azar: random.Random | None = None):
+                 azar: random.Random | None = None, momento: Callable[[], datetime] | None = None):
         self._poner = poner_cara
         self._texto = poner_texto or (lambda _t: None)
         self._reloj = reloj
         self._hoy = hoy
+        self._momento = momento or datetime.now
         self._azar = azar or random.Random()
         self.estado = "idle"
         self.cara = None
@@ -107,7 +111,7 @@ class Comportamiento:
 
             if mongo_caras.bloqueada():
                 return
-            mongo_caras._sonido("guitarra" if encender else "", encender)
+            mongo_caras._sonido("guitarra" if encender else "", encender, suave=True)
             self._sonando_mio = encender
         except Exception:                                        # noqa: BLE001
             pass
@@ -127,6 +131,14 @@ class Comportamiento:
             return not disponibles or cara in disponibles
         except Exception:                                        # noqa: BLE001
             return True
+
+    def _actividades(self) -> list[str]:
+        """Actividades de inactividad; la guitarra solo fines de semana de día."""
+        m = self._momento()
+        acts = list(ACTIVIDADES)
+        if m.weekday() in GUITARRA_DIAS and GUITARRA_HORAS[0] <= m.hour < GUITARRA_HORAS[1]:
+            acts.append("guitarra")
+        return acts
 
     def _cara_reposo(self) -> str:
         hoy = self._hoy()
@@ -281,7 +293,7 @@ class Comportamiento:
                 self._texto(self._azar.choice(FRASES_LLAMAR))
                 self._actividades_hechas += 1      # para no llamar dos veces seguidas
                 return
-            opciones = [a for a in ACTIVIDADES if a != self._ultima_actividad]
+            opciones = [a for a in self._actividades() if a != self._ultima_actividad]
             act = self._azar.choice(opciones)
             self._ultima_actividad = act
             self._fase, self._fase_hasta = "actividad", ahora + ACTIVIDAD

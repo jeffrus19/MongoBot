@@ -7,7 +7,7 @@ Uso (desde la carpeta de py-xiaozhi):
 import asyncio, json, os, re, sys
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, '.')
-from datetime import date
+from datetime import date, datetime
 import random
 from src.constants.constants import DeviceState as S
 from src.plugins.ui_presenter import UiPresenter
@@ -81,14 +81,23 @@ async def main():
     # inactividad con reloj acelerado
     vistas = {}
     reloj=[0.0]
-    c = mc.Comportamiento(lambda e: vistas.setdefault(e, reloj[0]), reloj=lambda: reloj[0], hoy=lambda: date(2026,11,11), azar=random.Random(1))
+    sabado = lambda: datetime(2026, 11, 14, 11, 0)       # sábado 11:00: entra la guitarra
+    c = mc.Comportamiento(lambda e: vistas.setdefault(e, reloj[0]), reloj=lambda: reloj[0], hoy=lambda: date(2026,11,14),
+                          azar=random.Random(1), momento=sabado)
     c.inicio()
     for s in range(720): reloj[0]=float(s); c.tic()
     for a, desc in [("saludo","al arrancar"),("aburrido","1 min sin hablarle"),("mirando","entre actividades"),
                     ("llamando","cada 3 actividades"),("bostezo","a los 10 min"),("sleepy","después del bostezo"),
-                    ("guitarra","actividad de inactividad"),("ejercicio","actividad de inactividad"),
-                    ("videojuego","actividad de inactividad"),("leyendo","actividad de inactividad")]:
+                    ("guitarra","inactividad sábado 11:00"),("ejercicio","actividad de inactividad"),
+                    ("videojuego","actividad de inactividad")]:
         anotar(a, desc, a in vistas, f"min {vistas[a]/60:.1f}" if a in vistas else "no salió")
+    # guitarra fuera de horario: no debe salir
+    for cuando in (datetime(2026,11,12,11,0), datetime(2026,11,14,9,59), datetime(2026,11,15,17,0)):
+        vistas3=set(); r3=[0.0]
+        c3 = mc.Comportamiento(vistas3.add, reloj=lambda: r3[0], hoy=lambda: cuando.date(), azar=random.Random(2), momento=lambda c=cuando: c)
+        c3.inicio()
+        for s in range(590): r3[0]=float(s); c3.tic()
+        anotar("ejercicio", f"sin guitarra el {cuando:%a %H:%M}", "guitarra" not in vistas3 and {"ejercicio","videojuego"} <= vistas3, ",".join(sorted(vistas3)))
     for d, a in [(date(2026,12,20),"navidad"),(date(2026,12,31),"anio_nuevo")]:
         vistas2=[]; r2=[0.0]
         c2 = mc.Comportamiento(vistas2.append, reloj=lambda: r2[0], hoy=lambda d=d: d); c2.inicio()

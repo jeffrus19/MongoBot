@@ -57,8 +57,9 @@ def caras_disponibles() -> list[str]:
     return sorted(p.stem for p in carpeta.glob("*.gif"))
 
 
-def _sonido(nombre: str, encender: bool) -> None:
-    """Arpegio de guitarra mientras toca (solo Windows, con winsound)."""
+def _sonido(nombre: str, encender: bool, suave: bool = False) -> None:
+    """Arpegio de guitarra mientras toca (solo Windows, con winsound).
+    ``suave``: la versión a volumen moderado (la de inactividad)."""
     global _sonando
     if sys.platform != "win32":
         return
@@ -68,7 +69,9 @@ def _sonido(nombre: str, encender: bool) -> None:
         if encender and nombre == "guitarra":
             from src.utils.resource_finder import get_assets_dir
 
-            wav = get_assets_dir() / "inactividad" / "guitarra.wav"
+            wav = get_assets_dir() / "inactividad" / ("guitarra_suave.wav" if suave else "guitarra.wav")
+            if not wav.exists():
+                wav = get_assets_dir() / "inactividad" / "guitarra.wav"
             if wav.exists():
                 winsound.PlaySound(str(wav), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP)
                 _sonando = True

@@ -20,7 +20,7 @@ class Pantalla:
     def set_music_line(self, t): pass
 
 sonidos = []
-mongo_caras._sonido = lambda nombre, encender: sonidos.append((nombre, encender))
+mongo_caras._sonido = lambda nombre, encender, suave=False: sonidos.append((nombre, encender))
 
 ok_total = fallas = 0
 def ver(desc, real, esperado):
