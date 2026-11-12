@@ -103,9 +103,31 @@ R_ESTANDAR = 80
 SIN_ZOOM = {"conversa_escucha", "conversa_habla"}
 
 
+# Pantalla vertical de la placa (Freenove 2.8", 240x320). Las animaciones se siguen
+# dibujando con las coordenadas de siempre (320x240, cabeza en CX, CY) sobre un lienzo
+# de 320x320: se bajan VERT_Y px y al final se recorta la franja central de 240 de ancho.
+# Cada animación puede correr el recorte (VERT_DX) o bajar más (VERT_DY) si lo necesita.
+VERTICAL = True
+PW, PH = 240, 320
+VERT_Y = 40
+VERT_DY: dict[str, float] = {}
+VERT_DX: dict[str, float] = {}
+try:                                   # lo calcula encuadre_vertical.py
+    import json as _json
+
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "encuadre_vertical.json"),
+              encoding="utf-8") as _f:
+        for _n, _e in _json.load(_f).items():
+            VERT_DX[_n], VERT_DY[_n] = _e["dx"], _e["dy"]
+except (OSError, ValueError):
+    pass
+
+
 class Lienzo:
     def __init__(self, color):
-        self.img = Image.new("RGB", (W * SS, H * SS), (0, 0, 0))
+        self.oy = (VERT_Y + VERT_DY.get(ACTUAL, 0)) if VERTICAL else 0
+        self.ox = VERT_DX.get(ACTUAL, 0) if VERTICAL else 0
+        self.img = Image.new("RGB", (W * SS, (H + 2 * VERT_Y if VERTICAL else H) * SS), (0, 0, 0))
         self.d = ImageDraw.Draw(self.img)
         self.C = color
         self.rot = 0.0
@@ -137,7 +159,7 @@ class Lienzo:
             px, py = self.piv
             c, s = math.cos(self.rot), math.sin(self.rot)
             x, y = px + (x - px) * c - (y - py) * s, py + (x - px) * s + (y - py) * c
-        return x * SS, y * SS
+        return x * SS, (y + self.oy) * SS
 
     def linea(self, pts, ancho=TRAZO, color=None):
         color = color or self.C
@@ -168,12 +190,17 @@ class Lienzo:
 
     def final(self):
         img = self.img
+        cw, ch = img.size
         if self.zoom != 1.0:
-            w, h = W * SS / self.zoom, H * SS / self.zoom
-            zx = min(max(self.zoom_c[0] * SS, w / 2), W * SS - w / 2)
-            zy = min(max(self.zoom_c[1] * SS, h / 2), H * SS - h / 2)
-            img = img.crop((int(zx - w / 2), int(zy - h / 2), int(zx + w / 2), int(zy + h / 2)))
-        return img.resize((W, H), Image.LANCZOS)
+            w, h = cw / self.zoom, ch / self.zoom
+            zx = min(max(self.zoom_c[0] * SS, w / 2), cw - w / 2)
+            zy = min(max((self.zoom_c[1] + self.oy) * SS, h / 2), ch - h / 2)
+            img = img.crop((int(zx - w / 2), int(zy - h / 2), int(zx + w / 2), int(zy + h / 2))).resize((cw, ch))
+        if not VERTICAL:
+            return img.resize((W, H), Image.LANCZOS)
+        x0 = (CX + self.ox - PW / 2) * SS
+        img = img.crop((int(x0), 0, int(x0 + PW * SS), ch))
+        return img.resize((PW, PH), Image.LANCZOS)
 
 
 def bezier(P, n=20):
@@ -805,6 +832,7 @@ def e_mirando(L, t):
 # hasta verse como una cúpula blanca cortada abajo, con ojos negros grandes que
 # se mueven sobre la esfera. Así parece que te está poniendo atención.
 CUPULA = dict(cx=160, cy=124, r=90, corte=176)
+ZOOM_CUPULA_VERTICAL = 1.12          # en la pantalla vertical la cúpula se acerca un poco más
 OJO_CERCA = (240, 240, 240)          # de cerca los ojos son blancos
 
 
@@ -913,6 +941,8 @@ def e_conversa_escucha(L, t):
 
 # globitos: (aparece, desaparece, dx, dy, punta hacia) relativos al centro de la cúpula
 GLOBOS = [(0.2, 2.0, 62, -98, "abajo"), (2.2, 4.0, 122, -40, "izquierda"), (4.2, 5.8, -66, -98, "abajo_der")]
+# En la pantalla vertical sobra espacio arriba y falta a los lados: los globitos salen encima
+GLOBOS_VERTICAL = [(0.2, 2.0, 58, -132, "abajo"), (2.2, 4.0, 0, -172, "abajo"), (4.2, 5.8, -58, -132, "abajo_der")]
 
 
 def globo(L, x, y, k, puntos, punta):
@@ -944,13 +974,16 @@ def e_conversa_habla(L, t):
     puntos_mirada = [(0.0, 0.1, -0.1, 0.0), (0.7, 0.35, -0.4, 0.7), (2.2, 0.35, -0.4, 0.0),
                      (2.9, 0.5, -0.1, 0.7), (4.2, 0.5, -0.1, 0.0), (4.9, -0.35, -0.4, 0.7),
                      (5.6, -0.35, -0.4, 0.0), (6.0, 0.1, -0.1, 0.4)]
+    if VERTICAL:   # el segundo globito sale arriba al centro: mira hacia arriba
+        puntos_mirada = [(tt, 0.0, -0.6, d) if 2.2 <= tt < 4.2 else (tt, lx_, ly_, d)
+                         for tt, lx_, ly_, d in puntos_mirada]
     lx, ly = _mirada(puntos_mirada, t)
     dx, dy = _deriva(t, 0.025)
     sonrisa = _suave((t - 2.4) / 0.5) * (1 - _suave((t - 3.7) / 0.5))
     cupula(L, t, lx + dx, ly + dy - 0.03 * v, voz=v * (1 - 0.6 * sonrisa), sonrisa=sonrisa,
            parp=_parpadeos(t, (1.3, 4.7)))
     cx, cy = CUPULA["cx"], CUPULA["cy"]
-    for t0, t1, gx, gy, punta in GLOBOS:
+    for t0, t1, gx, gy, punta in (GLOBOS_VERTICAL if VERTICAL else GLOBOS):
         if t0 <= t < t1:
             u = t - t0
             k = rebote(u / 0.3) if u < 0.3 else 1.0
@@ -1025,6 +1058,9 @@ def cuadro(nombre, t):
     L = Lienzo(COLORES[nombre])
     if nombre not in SIN_ZOOM:
         L.zoom = R_ESTANDAR / RX
+    elif VERTICAL:
+        L.zoom = ZOOM_CUPULA_VERTICAL      # en vertical la cúpula se acerca más
+
     globals()["e_" + nombre](L, t)
     return L.final()
 

@@ -115,6 +115,17 @@ respetar estas reglas, porque cada una corrigió un error real:
    actualizame), sale actualizando mientras contesta, con un mínimo de 6 s
    (`mostrar(..., hasta_respuesta=True, minimo=6)` y `fin_de_respuesta()`).
 
+18. **Pantalla vertical (240x320).** La placa se usa parada. Las animaciones se
+   dibujan con las mismas coordenadas de antes (320x240, cabeza en 160,124) sobre un
+   lienzo de 320x320, y al final se recorta la franja de 240 de ancho. Cada animación
+   tiene su encuadre en `fuentes_minimal/encuadre_vertical.json` (dx: corrimiento del
+   recorte, ±40 como máximo para no cortar la cabeza; dy: subir o bajar la escena), que
+   calcula `encuadre_vertical.py` mirando dónde hay dibujo, más algunos ajustes a mano.
+   En vertical la cúpula de conversación se acerca un poco (zoom 1,12) y sale desde el
+   borde de abajo, y los globitos salen encima de la cabeza en vez de a los lados.
+   En LVGL: pantalla en orientación vertical (rotación del ILI9341/ST7789) y cada
+   animación desplazada según ese JSON. `generar_todo.py` regenera las 69 de una vez.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

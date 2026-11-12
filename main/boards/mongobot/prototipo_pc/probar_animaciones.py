@@ -5,7 +5,7 @@ Uso (desde la carpeta de py-xiaozhi):
 
 Revisa, para cada animación del visor (assets/emojis/ver_animaciones.html):
 - que la interfaz la encuentre igual que EmotionService (nombre + .gif en assets/emojis)
-- que el GIF sea válido: tamaño 320x240, cantidad de cuadros y duración del bucle
+- que el GIF sea válido: tamaño 240x320 (pantalla vertical de la placa), cuadros y duración del bucle
 Al final muestra un resumen y si falta algo. No necesita librerías extra.
 """
 import re
@@ -91,7 +91,7 @@ def main():
                 continue
             kb = ruta.stat().st_size / 1024
             peso += kb
-            ok = (w, h) == (320, 240) and cuadros > 1
+            ok = (w, h) == (240, 320) and cuadros > 1
             marca = "ok   " if ok else "REVISAR"
             if not ok:
                 malos.append(n)

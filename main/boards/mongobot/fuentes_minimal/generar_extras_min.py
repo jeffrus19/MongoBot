@@ -216,7 +216,7 @@ def a_saludo(L, t):
     sacude = 0.0
     if 1.0 <= t < 1.25:
         sacude = 3 * math.sin(2 * math.pi * (t - 1.0) / 0.06) * (1 - (t - 1.0) / 0.25)
-    cy = 124 + 160 * (1 - sube)
+    cy = 124 + (290 if mm.VERTICAL else 160) * (1 - sube)   # entra desde abajo de la pantalla
     guino = 1.6 <= t < 2.3
     c = cara(L, cx=150 + sacude, cy=cy + sacude * 0.5, lx=0.15 if t < 1.6 else 0.0)
     if 0.6 <= t < 1.6 or guino:
