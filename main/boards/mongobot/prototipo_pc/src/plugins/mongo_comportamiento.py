@@ -33,7 +33,7 @@ Inactividad (sin que le hablés)
                              ejercicio             mar, mié y jue de 9:00 a 10:00; sáb y dom de 8:00 a 11:00
                              leyendo               todos los días de 8:00 a 20:00
                              guitarra              sábado y domingo de 10:00 a 17:00, sonido al 15 %
-                             videojuego            lunes a viernes de 11:00 a 16:00, sonido al 15 %
+                             videojuego            lunes a viernes de 11:00 a 16:00, sonido al 10 %
                            De día nunca se duerme: en las horas sin actividad programada
                            (6:00-8:00 y 20:00-22:00) alterna leyendo y videojuego, este
                            sin sonido. Pedidas con show_face salen a cualquier hora y
@@ -131,7 +131,7 @@ HORARIOS = {
     "videojuego": [((0, 1, 2, 3, 4), 11, 16)],  # lunes a viernes
 }
 ACTIVIDADES = list(HORARIOS)
-CON_SONIDO = ("guitarra", "videojuego")   # actividades con loop de audio (al 15 %)
+CON_SONIDO = ("guitarra", "videojuego")   # loop de audio (guitarra al 15 %, videojuego al 10 %)
 GOLPES = ("llamando", "saludo")           # toca el vidrio: suena el golpe (no de noche)
 FRASES_LLAMAR = [
     "Diay, ¿me vas a dejar aquí solito?",
