@@ -90,6 +90,12 @@ respetar estas reglas, porque cada una corrigió un error real:
    (`WifiStation::IsConnected()` falso) o no haya salida a internet, no por un cierre
    del websocket.
 
+13. **Golpes en el vidrio:** cuando MongoBot toca la pantalla suena un golpe propio
+   (`fuentes_minimal/audio_golpes.py`): llamando, tres toquecitos de nudillo
+   sincronizados con la animación (3,0 s, se repite con ella), y saludo, la palmada del
+   choque de cinco (una vez, a 1,0 s). No suenan de noche. En la placa:
+   `inactividad/llamando.ogg` y `inactividad/saludo.ogg`.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

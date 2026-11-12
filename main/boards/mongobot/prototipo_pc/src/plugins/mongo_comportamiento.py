@@ -90,6 +90,7 @@ HORARIOS = {
 }
 ACTIVIDADES = list(HORARIOS)
 CON_SONIDO = ("guitarra", "videojuego")   # actividades con loop de audio (al 15 %)
+GOLPES = ("llamando", "saludo")           # toca el vidrio: suena el golpe (no de noche)
 FRASES_LLAMAR = [
     "Diay, ¿me vas a dejar aquí solito?",
     "Mae, aquí sigo, guapísimo como siempre, por si te interesa.",
@@ -132,14 +133,18 @@ class Comportamiento:
     # ------------------------------------------------------------ utilidades
 
     def _mostrar(self, cara: str) -> None:
-        if cara != self.cara:
+        cambio = cara != self.cara
+        if cambio:
             self.cara = cara
             self._poner(cara)
             logger.debug(f"[Comportamiento] cara -> {cara}")
-        if cara not in CON_SONIDO:
+        if cara in GOLPES:
+            if cambio and not self.es_de_noche():
+                self._sonido_actividad(True, suave=False)
+        elif cara not in CON_SONIDO:
             self._sonido_actividad(False)
 
-    def _sonido_actividad(self, encender: bool) -> None:
+    def _sonido_actividad(self, encender: bool, suave: bool = True) -> None:
         """Loop de la actividad actual (guitarra o videojuego) al 15 %. Solo apaga el
         sonido si lo encendió esta capa: lo pedido con show_face lleva su propio
         sonido y su propio tiempo."""
@@ -150,7 +155,7 @@ class Comportamiento:
 
             if mongo_caras.bloqueada():
                 return
-            mongo_caras._sonido(self.cara if encender else "", encender, suave=True)
+            mongo_caras._sonido(self.cara if encender else "", encender, suave=suave)
             self._sonando_mio = encender
         except Exception:                                        # noqa: BLE001
             pass

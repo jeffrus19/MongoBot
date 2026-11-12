@@ -27,6 +27,7 @@ _pendiente: str | None = None
 _temporizador: asyncio.TimerHandle | None = None
 _sonando = False
 CON_SONIDO = ("guitarra", "videojuego")     # caras que llevan un loop de audio
+GOLPES = {"llamando": True, "saludo": False}  # MongoBot toca la pantalla: nombre -> se repite
 
 
 def conectar(fn: Callable[[str], None] | None) -> None:
@@ -59,7 +60,8 @@ def caras_disponibles() -> list[str]:
 
 
 def _sonido(nombre: str, encender: bool, suave: bool = False) -> None:
-    """Loop de la guitarra o del videojuego (8 bits) mientras dure (solo Windows, con winsound).
+    """Sonido de la cara mientras dure (solo Windows, con winsound): loop de la guitarra
+    o del videojuego (8 bits), o los golpes en el vidrio de llamando y saludo.
     ``suave``: la versión a volumen moderado (la de inactividad)."""
     global _sonando
     if sys.platform != "win32":
@@ -67,7 +69,7 @@ def _sonido(nombre: str, encender: bool, suave: bool = False) -> None:
     try:
         import winsound
 
-        if encender and nombre in CON_SONIDO:
+        if encender and (nombre in CON_SONIDO or nombre in GOLPES):
             from src.utils.resource_finder import get_assets_dir
 
             carpeta = get_assets_dir() / "inactividad"
@@ -75,7 +77,8 @@ def _sonido(nombre: str, encender: bool, suave: bool = False) -> None:
             if not wav.exists():
                 wav = carpeta / f"{nombre}.wav"
             if wav.exists():
-                winsound.PlaySound(str(wav), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP)
+                repite = winsound.SND_LOOP if GOLPES.get(nombre, True) else 0
+                winsound.PlaySound(str(wav), winsound.SND_FILENAME | winsound.SND_ASYNC | repite)
                 _sonando = True
         elif _sonando:
             winsound.PlaySound(None, 0)

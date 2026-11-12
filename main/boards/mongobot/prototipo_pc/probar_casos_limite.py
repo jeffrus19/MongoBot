@@ -236,6 +236,15 @@ async def main():
     mc.hay_internet = lambda: True; c._ultima_revision_red -= 16
     await c.verificar_red(); ver("volvió el internet: reposo solo", (pan.cara, c._sin_red), ("neutral", False))
     c.tic(); ver("ya no revisa", c.toca_revisar_red(), False)
+    print("17. Golpes en el vidrio (saludo y llamando)")
+    pan, pres = nuevo(); c = mc.actual(); sonidos.clear()
+    c.inicio(); ver("al arrancar: palmada del saludo", (pan.cara, sonidos[-1]), ("saludo", ("saludo", True, False)))
+    c._mostrar("neutral"); ver("termina el saludo: se apaga", sonidos[-1], ("", False))
+    c._mostrar("llamando"); ver("toca el vidrio: toquecitos", sonidos[-1], ("llamando", True, False))
+    n = len(sonidos); c._mostrar("llamando"); ver("no reinicia el sonido si sigue igual", len(sonidos), n)
+    c._mostrar("videojuego"); c._mostrar("mirando"); ver("después se apaga", (sonidos[-1], c._sonando_mio), (("", False), False))
+    c._momento = lambda: datetime(2026, 11, 12, 23, 0); c.cara = None; sonidos.clear()
+    c._mostrar("saludo"); ver("de noche no golpea", sonidos, [])
     print(f"\n{ok_total} bien, {fallas} fallas")
 
 asyncio.run(main())
