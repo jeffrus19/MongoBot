@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import re
 import socket
 import time
 from collections.abc import Callable
@@ -76,6 +77,9 @@ ENOJO_VENTANA = 120
 ENOJO_VECES = 3
 CONVERSA_VENTANA = 30     # segundos en reposo tras una respuesta en que sigue la conversación
 REVISAR_RED_CADA = 15      # segundos entre pruebas mientras está sin conexión
+# "dame un pompi" (choque de puños/cinco): saludo con su palmada. Incluye cómo lo
+# suele escribir el reconocimiento de voz.
+POMPI = re.compile(r"\b(pomp[iy]e?s?|pombi(s)?)\b", re.IGNORECASE)
 NOCHE = (22, 6)            # duerme de 22:00 a 6:00
 DORMIR_NOCHE = 60          # de noche, segundos sin hablarle antes de dormirse
 
@@ -272,6 +276,13 @@ class Comportamiento:
             return
         self._contactar()
         self._soltar_cara_pedida()
+        if POMPI.search(texto or ""):
+            from src.plugins import mongo_caras
+
+            mongo_caras.mostrar("saludo", SALUDO)     # choca los cinco con su palmada
+            self.cara = "saludo"
+            logger.info("[Comportamiento] pompi: saludo")
+            return
         if self.estado != "speaking":
             self._mostrar("pensando")
 

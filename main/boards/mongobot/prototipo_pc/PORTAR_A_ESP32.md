@@ -96,6 +96,11 @@ respetar estas reglas, porque cada una corrigió un error real:
    choque de cinco (una vez, a 1,0 s). No suenan de noche. En la placa:
    `inactividad/llamando.ogg` y `inactividad/saludo.ogg`.
 
+14. **"Pompi":** si lo que dijiste (stt) trae "pompi" (o como lo escribe el
+   reconocimiento: pompy, pompis, pombi), sale saludo con la palmada por 3 s, aunque
+   sea de noche, y la respuesta se muestra al terminar. Regex `POMPI` en
+   mongo_comportamiento.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

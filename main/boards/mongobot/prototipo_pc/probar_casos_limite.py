@@ -245,6 +245,18 @@ async def main():
     c._mostrar("videojuego"); c._mostrar("mirando"); ver("después se apaga", (sonidos[-1], c._sonando_mio), (("", False), False))
     c._momento = lambda: datetime(2026, 11, 12, 23, 0); c.cara = None; sonidos.clear()
     c._mostrar("saludo"); ver("de noche no golpea", sonidos, [])
+    print("18. Pompi")
+    for frase, esperado in (("dame un pompi", "saludo"), ("Pompi, mae", "saludo"), ("pompis!", "saludo"),
+                            ("pompy", "saludo"), ("compré un pompón", "pensando"), ("hola", "pensando")):
+        pan, pres = nuevo(); sonidos.clear()
+        pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type": "stt", "text": frase})
+        ver(f"dice {frase!r}", pan.cara, esperado)
+    pan, pres = nuevo(); sonidos.clear()
+    pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type": "stt", "text": "pompi"})
+    ver("suena la palmada", [s for s in sonidos if s[1]][-1][:2], ("saludo", True))
+    pres.show_device_state(S.SPEAKING); pres.show_protocol_message({"type": "llm", "emotion": "happy"})
+    ver("mientras contesta sigue el saludo", pan.cara, "saludo")
+    mongo_caras.soltar(); ver("al terminar el saludo muestra la respuesta", pan.cara, "happy")
     print(f"\n{ok_total} bien, {fallas} fallas")
 
 asyncio.run(main())
