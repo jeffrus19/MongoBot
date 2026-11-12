@@ -591,8 +591,7 @@ def a_leyendo(L, t):
     x2, y2 = c.ojo(1)
     L.linea([(x1 + 17, y1 - 3), (x2 - 17, y2 - 3)], 3.5, ARO)
     L.cara = None
-    pasa = ((t % 2.4) - 2.0) / 0.4
-    libro(L, 208, 168, pasa)
+    libro(L, 208, 168, 0)                 # sin pasar página
 
 
 UNA_VEZ = {"despertar", "tacto_despertar"}      # cuentan una historia: se reproducen una vez
