@@ -79,6 +79,7 @@ async def main():
         pres.show_device_state(S.LISTENING); pres.show_device_state(S.SPEAKING); pres.show_protocol_message({"type":"llm","emotion":"angry"})
     anotar("furioso", "tres 'angry' seguidos", pan.cara == "furioso", pan.cara)
     pres.show_device_state(S.IDLE); pres.show_network_error()
+    mc.hay_internet = lambda: False; await mc.actual().verificar_red()
     anotar("sin_conexion", "error de red en espera", pan.cara == "sin_conexion", pan.cara)
     mc.actual()._dormido = True; mc.actual()._sin_red = False; mc.actual()._fin_respuesta = float("-inf")
     pres.show_device_state(S.LISTENING); anotar("despertar", "le hablás dormido", pan.cara == "despertar", pan.cara)

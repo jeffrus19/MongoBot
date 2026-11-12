@@ -147,7 +147,8 @@ async def main():
     print("11. Se cae la red mientras habla")
     pan, pres = nuevo()
     pres.show_device_state(S.LISTENING); pres.show_device_state(S.SPEAKING)
-    pres.show_network_error(); ver("mientras habla no cambia", pan.cara, "conversa_habla")
+    mc.hay_internet = lambda: False
+    pres.show_network_error(); await mc.actual().verificar_red(); ver("mientras habla no cambia", pan.cara, "conversa_habla")
     pres.show_device_state(S.IDLE); ver("queda en reposo", pan.cara, "sin_conexion")
     for _ in range(70): mc.actual().tic()
     ver("sin red no se aburre", pan.cara, "sin_conexion")
@@ -221,6 +222,20 @@ async def main():
     pres.show_device_state(S.LISTENING); ver("más de 30 s después: pregunta nueva", pan.cara, "escuchando")
     pres.show_device_state(S.IDLE); c._fin_respuesta = float("-inf"); c._dormido = True
     pres.show_device_state(S.LISTENING); mongo_caras.soltar(); ver("despertarlo es una pregunta nueva", pan.cara, "escuchando")
+    mongo_caras.soltar()
+    print("16. Aviso de error de red: solo sin_conexion si de verdad no hay internet")
+    pan, pres = nuevo(); c = mc.actual()
+    mc.hay_internet = lambda: True
+    pres.show_network_error(); ver("aviso recibido, todavía sin probar", (pan.cara, c.toca_revisar_red()), ("neutral", True))
+    await c.verificar_red(); ver("hay internet: no cambia", (pan.cara, c._sin_red), ("neutral", False))
+    mc.hay_internet = lambda: False
+    pres.show_network_error(); await c.verificar_red(); ver("sin internet: sin_conexion", pan.cara, "sin_conexion")
+    ver("recién probado: no vuelve a probar enseguida", c.toca_revisar_red(), False)
+    c._ultima_revision_red -= 16; ver("a los 15 s toca probar otra vez", c.toca_revisar_red(), True)
+    await c.verificar_red(); ver("sigue sin internet", pan.cara, "sin_conexion")
+    mc.hay_internet = lambda: True; c._ultima_revision_red -= 16
+    await c.verificar_red(); ver("volvió el internet: reposo solo", (pan.cara, c._sin_red), ("neutral", False))
+    c.tic(); ver("ya no revisa", c.toca_revisar_red(), False)
     print(f"\n{ok_total} bien, {fallas} fallas")
 
 asyncio.run(main())

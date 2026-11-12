@@ -80,6 +80,14 @@ respetar estas reglas, porque cada una corrigió un error real:
    vuelve a dormirse. A las 6:00 se levanta solo (despertar y "buenos días"). De día
    sigue la siesta a los 10 min sin interacción.
 
+12. **sin_conexion solo si de verdad no hay conexión.** py-xiaozhi avisa "error de
+   red" también cuando el servidor cierra la sesión de mala manera, y la cara salía
+   sin motivo. Ahora cada aviso se confirma abriendo una conexión corta a internet;
+   si responde, se ignora. Mientras esté sin red, prueba cada 15 s y, si volvió,
+   regresa al reposo solo. En la placa: mostrarla solo cuando el WiFi esté caído
+   (`WifiStation::IsConnected()` falso) o no haya salida a internet, no por un cierre
+   del websocket.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

@@ -77,7 +77,10 @@ async def conversaciones():
         ("responde", S.SPEAKING), ("en espera", S.IDLE)])
     await escenario("6. Se cae el internet y vuelve", [
         ("en espera", S.IDLE),
-        ("error de red", lambda p: p.show_network_error()),
+        ("aviso de error de red (sin internet de verdad)", lambda p: (p.show_network_error(), setattr(mc, "hay_internet", lambda: False))),
+        ("se confirma probando la conexión", lambda p: mc.actual().verificar_red()),
+        ("vuelve el internet: a los 15 s lo nota", lambda p: (setattr(mc, "hay_internet", lambda: True), mc.actual().verificar_red())[1]),
+        ("aviso de error de red, pero hay internet", lambda p: (p.show_network_error(), mc.actual().verificar_red())[1]),
         ("vuelve: le hablás", S.LISTENING), ("en espera", S.IDLE)])
     p = await escenario("7. Estaba dormido y le hablás", [
         ("dormirlo a la fuerza", lambda p: setattr(mc.actual(), "_dormido", True)),

@@ -19,7 +19,11 @@ Conversación
 
 Sistema
 - Al arrancar           -> saludo
-- Sin conexión          -> sin_conexion, hasta que vuelva a conversar
+- Sin conexión          -> sin_conexion, SOLO si de verdad no hay internet. py-xiaozhi
+                           avisa "error de red" también cuando el servidor cierra la
+                           sesión de mala manera; por eso cada aviso se confirma probando
+                           la conexión (hay_internet). Mientras esté sin red, cada 15 s
+                           vuelve a probar y, si volvió, regresa al reposo solo
 
 Inactividad (sin que le hablés)
 - 0 a 60 s              -> neutral (o la cara de temporada en diciembre)
@@ -47,6 +51,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import socket
 import time
 from collections.abc import Callable
 from datetime import date, datetime
@@ -69,6 +74,7 @@ DESPERTAR = 1.4
 ENOJO_VENTANA = 120
 ENOJO_VECES = 3
 CONVERSA_VENTANA = 30     # segundos en reposo tras una respuesta en que sigue la conversación
+REVISAR_RED_CADA = 15      # segundos entre pruebas mientras está sin conexión
 NOCHE = (22, 6)            # duerme de 22:00 a 6:00
 DORMIR_NOCHE = 60          # de noche, segundos sin hablarle antes de dormirse
 
@@ -111,6 +117,8 @@ class Comportamiento:
         self._dormido = False
         self._dormido_noche = False    # se durmió por la hora: a las 6:00 se levanta solo
         self._sin_red = False
+        self._por_revisar_red = False
+        self._ultima_revision_red = float("-inf")
         self._fase = "reposo"          # reposo | aburrido | actividad | entre | llamando | bostezo | dormido
         self._fase_hasta = 0.0
         self._actividades_hechas = 0
@@ -297,10 +305,42 @@ class Comportamiento:
         if self.estado == "idle":
             self._mostrar("musica" if sonando else self._cara_reposo())
 
+    def error_de_red(self) -> None:
+        """py-xiaozhi avisó un error de red: se confirma en verificar_red antes de
+        mostrar sin_conexion (puede ser solo el servidor cerrando la sesión)."""
+        self._por_revisar_red = True
+
+    async def verificar_red(self) -> bool:
+        """Prueba la conexión y actualiza la cara. Devuelve True si hay internet."""
+        self._por_revisar_red = False
+        self._ultima_revision_red = self._reloj()
+        ok = await asyncio.to_thread(hay_internet)
+        if not ok:
+            if not self._sin_red:
+                logger.warning("[Comportamiento] sin internet: muestro sin_conexion")
+            self.sin_conexion()
+        elif self._sin_red:
+            self.volvio_red()
+        else:
+            logger.info("[Comportamiento] aviso de error de red, pero hay internet: lo ignoro")
+        return ok
+
     def sin_conexion(self) -> None:
+        """Sin internet confirmado."""
         self._sin_red = True
         if self.estado == "idle":
             self._mostrar("sin_conexion")
+
+    def volvio_red(self) -> None:
+        logger.info("[Comportamiento] volvió la conexión")
+        self._sin_red = False
+        self._contacto = self._reloj()
+        if self.estado == "idle":
+            self._mostrar("musica" if self._musica else self._cara_reposo())
+
+    def toca_revisar_red(self) -> bool:
+        return self._por_revisar_red or (
+            self._sin_red and self._reloj() - self._ultima_revision_red >= REVISAR_RED_CADA)
 
     # ------------------------------------------------------------ inactividad
 
@@ -390,12 +430,25 @@ def actual() -> Comportamiento | None:
     return _instancia
 
 
+def hay_internet(timeout: float = 3.0) -> bool:
+    """¿Hay salida a internet? Abre una conexión TCP corta a servidores públicos."""
+    for host, puerto in (("1.1.1.1", 443), ("8.8.8.8", 53), ("api.tenclass.net", 443)):
+        try:
+            with socket.create_connection((host, puerto), timeout=timeout):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 async def correr() -> None:
     """Tic una vez por segundo. Lo arranca el plugin de UI."""
     while True:
         try:
             if _instancia is not None:
                 _instancia.tic()
+                if _instancia.toca_revisar_red():
+                    await _instancia.verificar_red()
         except asyncio.CancelledError:
             raise
         except Exception as e:                                   # noqa: BLE001
