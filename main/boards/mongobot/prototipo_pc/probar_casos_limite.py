@@ -4,6 +4,7 @@ Uso (desde la carpeta de py-xiaozhi):
     python scripts/probar_casos_limite.py
 """
 import asyncio, json, os, sys
+from datetime import datetime
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, '.')
 from src.constants.constants import DeviceState as S
@@ -20,7 +21,7 @@ class Pantalla:
     def set_music_line(self, t): pass
 
 sonidos = []
-mongo_caras._sonido = lambda nombre, encender, suave=False: sonidos.append((nombre, encender))
+mongo_caras._sonido = lambda nombre, encender, suave=False: sonidos.append((nombre, encender) if not encender else (nombre, encender, suave))
 
 ok_total = fallas = 0
 def ver(desc, real, esperado):
@@ -115,6 +116,7 @@ async def main():
 
     print("9. Guitarra de inactividad con una cara encima")
     pan, pres = nuevo(); c = mc.actual()
+    c._momento = lambda: datetime(2026, 11, 14, 11, 0)      # sábado 11:00
     c._contacto -= 100; c._dormido = False; c._fase = "actividad"; c._ultima_actividad = "guitarra"
     c._fase_hasta = c._reloj() + 30
     await cara("volumen", 2); c._mostrar("guitarra")
@@ -149,6 +151,20 @@ async def main():
     ver("se aburre debajo pero no se ve", pan.cara, "presumido")
     await asyncio.sleep(2.2); ver("al soltar muestra lo de abajo", pan.cara, "aburrido")
 
+    print("13. Sonido del videojuego (8 bits)")
+    for cuando, esperado in ((datetime(2026,11,12,11,0), None), (datetime(2026,11,15,16,0), ("videojuego", True, True))):
+        pan, pres = nuevo(); c = mc.actual(); c._momento = lambda c2=cuando: c2
+        c._contacto -= 100; c._fase = "entre"; c._fase_hasta = 0; c._actividades_hechas = 1
+        c._ultima_actividad = "ejercicio"; c._azar.choice = lambda ops: "videojuego"
+        c.tic()
+        encendidos = [s for s in sonidos if s[1]]
+        ver(f"{cuando:%a %H:%M} jugando", (pan.cara, encendidos[-1] if encendidos else None), ("videojuego", esperado))
+    c._fase_hasta = 0; c.tic()
+    ver("al terminar el juego se apaga", (pan.cara, c._sonando_mio), ("mirando", False))
+    pan, pres = nuevo(); sonidos.clear()
+    real = mongo_caras._sonido
+    await cara("videojuego", 2)
+    ver("pedido por voz (volumen normal)", [s for s in sonidos if s[1]][-1], ("videojuego", True, False))
     mongo_caras.soltar()
     print(f"\n{ok_total} bien, {fallas} fallas")
 

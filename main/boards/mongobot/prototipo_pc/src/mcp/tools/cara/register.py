@@ -26,7 +26,7 @@ DESCRIPCION_CARAS = (
     "picaro (mischievous), ignorando (ignoring, looks away), orgulloso (proud), curioso (curious), "
     "aburrido (bored), decepcionado (disappointed), presumido (showing off how handsome he is, sparkles), "
     "bostezo (yawn). "
-    "Activities: guitarra (plays guitar, with sound), ejercicio (push-ups), videojuego (plays a video game), "
+    "Activities: guitarra (plays guitar, with sound), ejercicio (push-ups), videojuego (plays a video game, with 8-bit sound), "
     "leyendo (reading a book), musica (listening to music). "
     "Weather: clima_sol, clima_nube, clima_lluvia. "
     "Functions: alarma, temporizador, recordatorio, mensaje, pomodoro_trabajo, pomodoro_descanso. "

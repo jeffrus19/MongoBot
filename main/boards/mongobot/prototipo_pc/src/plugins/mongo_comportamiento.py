@@ -20,8 +20,9 @@ Inactividad (sin que le hablés)
 - a los 60 s            -> aburrido, y luego alterna ejercicio, videojuego y leyendo, con ratos de
                            "mirando" entre una y otra; cada tanto toca el vidrio para
                            llamarte (llamando) y te dice algo. La guitarra solo entra en la
-                           rotación sábados y domingos de 10:00 a 17:00, a volumen moderado
-                           (pedida con show_face toca siempre, a volumen normal)
+                           rotación sábados y domingos de 10:00 a 17:00, y solo en ese
+                           horario suenan la guitarra y el videojuego (8 bits), al 30 %.
+                           Pedidas con show_face suenan siempre, a volumen normal
 - a los 10 min          -> bostezo y se duerme (sleepy) hasta que le hablés
 
 Las caras pedidas con la herramienta show_face (mongo_caras) siguen mandando: mientras
@@ -57,6 +58,7 @@ ENOJO_VECES = 3
 ACTIVIDADES = ["ejercicio", "videojuego", "leyendo"]
 GUITARRA_DIAS = (5, 6)          # sábado y domingo (lunes = 0)
 GUITARRA_HORAS = (10, 17)       # de 10:00 a 17:00
+CON_SONIDO = ("guitarra", "videojuego")   # actividades con loop de audio (solo en ese horario)
 FRASES_LLAMAR = [
     "Diay, ¿me vas a dejar aquí solito?",
     "Mae, aquí sigo, guapísimo como siempre, por si te interesa.",
@@ -88,7 +90,7 @@ class Comportamiento:
         self._actividades_hechas = 0
         self._ultima_actividad: str | None = None
         self._hasta_saludo = 0.0
-        self._sonando_mio = False      # la guitarra la encendió esta capa (no show_face)
+        self._sonando_mio = False      # el loop (guitarra/videojuego) lo encendió esta capa
         self._musica = False           # está sonando una canción del reproductor
 
     # ------------------------------------------------------------ utilidades
@@ -98,12 +100,13 @@ class Comportamiento:
             self.cara = cara
             self._poner(cara)
             logger.debug(f"[Comportamiento] cara -> {cara}")
-        if cara != "guitarra":
-            self._sonido_guitarra(False)
+        if cara not in CON_SONIDO:
+            self._sonido_actividad(False)
 
-    def _sonido_guitarra(self, encender: bool) -> None:
-        """Solo apaga el sonido si lo encendió esta capa: la guitarra pedida con
-        show_face lleva su propio sonido y su propio tiempo."""
+    def _sonido_actividad(self, encender: bool) -> None:
+        """Loop de la actividad actual (guitarra o videojuego) al 30 %. Solo apaga el
+        sonido si lo encendió esta capa: lo pedido con show_face lleva su propio
+        sonido y su propio tiempo."""
         if not encender and not self._sonando_mio:
             return
         try:
@@ -111,7 +114,7 @@ class Comportamiento:
 
             if mongo_caras.bloqueada():
                 return
-            mongo_caras._sonido("guitarra" if encender else "", encender, suave=True)
+            mongo_caras._sonido(self.cara if encender else "", encender, suave=True)
             self._sonando_mio = encender
         except Exception:                                        # noqa: BLE001
             pass
@@ -134,11 +137,15 @@ class Comportamiento:
 
     def _actividades(self) -> list[str]:
         """Actividades de inactividad; la guitarra solo fines de semana de día."""
-        m = self._momento()
         acts = list(ACTIVIDADES)
-        if m.weekday() in GUITARRA_DIAS and GUITARRA_HORAS[0] <= m.hour < GUITARRA_HORAS[1]:
+        if self._en_horario():
             acts.append("guitarra")
         return acts
+
+    def _en_horario(self) -> bool:
+        """Sábado o domingo de 10:00 a 17:00: puede tocar guitarra y sonar el videojuego."""
+        m = self._momento()
+        return m.weekday() in GUITARRA_DIAS and GUITARRA_HORAS[0] <= m.hour < GUITARRA_HORAS[1]
 
     def _cara_reposo(self) -> str:
         hoy = self._hoy()
@@ -155,7 +162,7 @@ class Comportamiento:
         self._dormido = False
         self._fase = "reposo"
         self._actividades_hechas = 0
-        self._sonido_guitarra(False)
+        self._sonido_actividad(False)
         return estaba_dormido
 
     # ------------------------------------------------------------ entradas
@@ -253,8 +260,8 @@ class Comportamiento:
                 self._mostrar(self._cara_reposo())
         if self.estado != "idle" or self._sin_red or self._hasta_saludo:
             return
-        if self.cara == "guitarra" and self._fase == "actividad" and not self._sonando_mio:
-            self._sonido_guitarra(True)       # una cara pedida tapó la guitarra; vuelve el sonido
+        if self.cara in CON_SONIDO and self._fase == "actividad" and not self._sonando_mio and self._en_horario():
+            self._sonido_actividad(True)      # una cara pedida tapó la actividad; vuelve el sonido
         if self._musica:                      # escuchando música no se aburre
             self._contacto = ahora
             if self.cara != "musica":
@@ -299,8 +306,8 @@ class Comportamiento:
             self._fase, self._fase_hasta = "actividad", ahora + ACTIVIDAD
             self._actividades_hechas += 1
             self._mostrar(act)
-            if act == "guitarra":
-                self._sonido_guitarra(True)
+            if act in CON_SONIDO and self._en_horario():
+                self._sonido_actividad(True)
             return
         if self._fase == "actividad":
             self._fase, self._fase_hasta = "entre", ahora + ENTRE_ACTIVIDADES

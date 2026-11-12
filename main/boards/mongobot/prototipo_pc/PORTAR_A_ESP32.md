@@ -31,7 +31,7 @@ de herramientas MCP**, así el texto de personalidad en xiaozhi.me no cambia.
 | Aviso al servidor con `UI_SEND_TEXT` para que grite "RING RING RING" | En py-xiaozhi ese texto viaja como mensaje de palabra de activación (`listen` / `detect` con texto), igual que en el firmware (`SendWakeWordDetected`). **Probado:** el servidor solo acepta textos cortos; uno largo responde con `type=alert`. Por eso el aviso va corto (`ALARMA: gimnasio`, máx. 60 caracteres) y la instrucción de gritar está en la descripción de las herramientas `self.alarm.*`. En la placa: mismo mensaje y mismos avisos cortos. |
 | Se calla si el usuario habla (mensaje `stt`) | Igual: al recibir `stt` del servidor que no sea uno de los avisos propios (empiezan con ALARMA, TEMPORIZADOR o RECORDATORIO), o al tocar la pantalla. |
 | Alertas del servidor (`type=alert`) se muestran y se registran | Mostrarlas en la pantalla (el firmware ya trae `Alert`). |
-| Sonido de la guitarra con `winsound` (`guitarra.wav` pedida, `guitarra_suave.wav` en inactividad) | `guitarra.ogg` (Opus 24 kHz) en la partición de assets, reproducido por el códec de audio; en inactividad, con la ganancia más baja. |
+| Sonido de guitarra y videojuego con `winsound` (`<nombre>.wav` pedido, `<nombre>_suave.wav` en inactividad) | `guitarra.ogg` y `videojuego.ogg` (Opus 24 kHz) en la partición de assets, reproducido por el códec de audio; en inactividad, con la ganancia más baja. |
 
 ## Reglas que salieron de las pruebas (noviembre 2026)
 
@@ -61,6 +61,11 @@ respetar estas reglas, porque cada una corrigió un error real:
    entra sábados y domingos de 10:00 a 17:00 (hora de Costa Rica, por SNTP) y a
    volumen moderado (en la PC, `guitarra_suave.wav` al 30 %; en la placa, bajar la
    ganancia del códec mientras suene). Pedida por voz (show_face) toca siempre y a
+   volumen normal.
+10. **Sonido del videojuego:** loop chiptune propio (`inactividad/videojuego.ogg`,
+   fuente en `fuentes_minimal/audio_videojuego.py`). Sigue la misma regla que la
+   guitarra: en inactividad solo suena sábados y domingos de 10:00 a 17:00, al 30 %
+   (el resto del tiempo la animación sale muda); pedido por voz suena siempre a
    volumen normal.
 
 ### Matriz de disparadores (69 animaciones)

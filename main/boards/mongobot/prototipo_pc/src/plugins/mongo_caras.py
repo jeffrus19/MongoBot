@@ -6,7 +6,7 @@ está activa, la pantalla no deja que otra cosa la tape (por ejemplo, el cambio 
 "hablando" que pone la cara neutral); al terminar el tiempo vuelve a la última
 cara que se quiso mostrar.
 
-Si la cara es la guitarra, en Windows también suena el arpegio mientras dure.
+Si la cara es la guitarra o el videojuego, en Windows también suena su loop mientras dure.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ _bloqueada_hasta = 0.0
 _pendiente: str | None = None
 _temporizador: asyncio.TimerHandle | None = None
 _sonando = False
+CON_SONIDO = ("guitarra", "videojuego")     # caras que llevan un loop de audio
 
 
 def conectar(fn: Callable[[str], None] | None) -> None:
@@ -58,7 +59,7 @@ def caras_disponibles() -> list[str]:
 
 
 def _sonido(nombre: str, encender: bool, suave: bool = False) -> None:
-    """Arpegio de guitarra mientras toca (solo Windows, con winsound).
+    """Loop de la guitarra o del videojuego (8 bits) mientras dure (solo Windows, con winsound).
     ``suave``: la versión a volumen moderado (la de inactividad)."""
     global _sonando
     if sys.platform != "win32":
@@ -66,12 +67,13 @@ def _sonido(nombre: str, encender: bool, suave: bool = False) -> None:
     try:
         import winsound
 
-        if encender and nombre == "guitarra":
+        if encender and nombre in CON_SONIDO:
             from src.utils.resource_finder import get_assets_dir
 
-            wav = get_assets_dir() / "inactividad" / ("guitarra_suave.wav" if suave else "guitarra.wav")
+            carpeta = get_assets_dir() / "inactividad"
+            wav = carpeta / (f"{nombre}_suave.wav" if suave else f"{nombre}.wav")
             if not wav.exists():
-                wav = get_assets_dir() / "inactividad" / "guitarra.wav"
+                wav = carpeta / f"{nombre}.wav"
             if wav.exists():
                 winsound.PlaySound(str(wav), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP)
                 _sonando = True
