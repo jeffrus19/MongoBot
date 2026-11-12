@@ -117,6 +117,7 @@ POMPI = re.compile(r"\b(pomp[iy]e?s?|pombi(s)?)\b", re.IGNORECASE)
 NOCHE = (22, 6)            # duerme de 22:00 a 6:00
 DORMIR_NOCHE = 60          # de noche, segundos sin hablarle antes de dormirse
 RELLENO = ["leyendo", "videojuego"]   # de día, cuando no toca ninguna actividad programada
+VIDEOJUEGO_MAX_DIA = 3     # veces al día que juega solo (pedido por voz, sin límite)
 ACTUALIZAR = re.compile(r"\bactualiz\w*", re.IGNORECASE)   # "actualizá...", "actualizar..."
 ACTUALIZANDO_MIN = 6       # segundos mínimos de la animación actualizando
 
@@ -162,6 +163,7 @@ class Comportamiento:
         self._dormido_noche = False    # se durmió por la hora: a las 6:00 se levanta solo
         self._sin_red = False
         self._alarma_pendiente = None
+        self._juegos = (None, 0)       # (día, veces que jugó videojuego solo ese día)
         self._por_revisar_red = False
         self._ultima_revision_red = float("-inf")
         self._fase = "reposo"          # reposo | aburrido | actividad | entre | llamando | bostezo | dormido
@@ -237,7 +239,15 @@ class Comportamiento:
         acts = [a for a in ACTIVIDADES if self._en_horario(a)]
         if not acts and not self.es_de_noche():
             acts = list(RELLENO)              # de día siempre hace algo (nunca se duerme)
+        if self._juegos_hoy() >= VIDEOJUEGO_MAX_DIA and "videojuego" in acts:
+            acts.remove("videojuego")         # ya jugó sus 3 veces de hoy
+            if not acts and not self.es_de_noche():
+                acts = ["leyendo"]
         return acts
+
+    def _juegos_hoy(self) -> int:
+        dia, veces = self._juegos
+        return veces if dia == self._momento().date() else 0
 
     def _en_horario(self, actividad: str) -> bool:
         m = self._momento()
@@ -529,6 +539,9 @@ class Comportamiento:
             opciones = [a for a in disponibles if a != self._ultima_actividad] or disponibles
             act = self._azar.choice(opciones)
             self._ultima_actividad = act
+            if act == "videojuego":
+                self._juegos = (self._momento().date(), self._juegos_hoy() + 1)
+                logger.info(f"[Comportamiento] videojuego {self._juegos[1]} de {VIDEOJUEGO_MAX_DIA} hoy")
             self._fase, self._fase_hasta = "actividad", ahora + ACTIVIDAD
             self._actividades_hechas += 1
             self._mostrar(act)

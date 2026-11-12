@@ -347,6 +347,24 @@ async def main():
     pres.show_device_state(S.SPEAKING); pres.show_device_state(S.IDLE)
     ver("sin hora no programa nada (la IA pregunta)", len(mongo_alarmas.listar()), 0)
     mongo_caras.soltar()
+    print("24. Videojuego solo 3 veces al día")
+    vistas = []; r = [0.0]; dia = [datetime(2026, 11, 12, 12, 0)]
+    c = mc.Comportamiento(vistas.append, reloj=lambda: r[0], hoy=lambda: dia[0].date(), momento=lambda: dia[0])
+    c.inicio()
+    for s in range(3 * 3600):
+        r[0] = float(s); c.tic()
+    juegos = sum(1 for v in vistas if v == "videojuego")
+    ver("3 horas solo un jueves al mediodía: veces que jugó", juegos, 3)
+    ver("después sigue leyendo", vistas.count("leyendo") > 3, True)
+    dia[0] = datetime(2026, 11, 13, 12, 0); n0 = len(vistas)
+    for s in range(3 * 3600, 4 * 3600):
+        r[0] = float(s); c.tic()
+    ver("al día siguiente vuelve a jugar", "videojuego" in vistas[n0:], True)
+    pan, pres = nuevo()
+    for _ in range(5):
+        r_ = await cara("videojuego", 2)
+    ver("pedido por voz no tiene límite", r_.get("ok"), True)
+    mongo_caras.soltar()
     print(f"\n{ok_total} bien, {fallas} fallas")
 
 asyncio.run(main())

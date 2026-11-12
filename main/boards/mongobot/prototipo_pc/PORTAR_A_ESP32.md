@@ -145,6 +145,11 @@ respetar estas reglas, porque cada una corrigió un error real:
    sin am/pm toma la próxima vez que llegue esa hora). Si la IA sí la programó, no se
    duplica; si no dijiste la hora, la IA pregunta.
 
+21. **Videojuego, máximo 3 veces al día** por su cuenta (cuenta las veces que lo elige
+   la inactividad; se reinicia cada día). Pedido por voz, sin límite. Cuando se acaba,
+   el relleno de día queda solo con leyendo. En la placa: guardar el contador con la
+   fecha en NVS para que no se reinicie si se reinicia la placa.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,
