@@ -349,7 +349,7 @@ index 304b03a..3cac706 100644
          if self._session is not None:
              self._session.unsubscribe()
 diff --git a/src/plugins/ui_presenter.py b/src/plugins/ui_presenter.py
-index 1e30dea..6c3cf6e 100644
+index 1e30dea..c083ccb 100644
 --- a/src/plugins/ui_presenter.py
 +++ b/src/plugins/ui_presenter.py
 @@ -30,10 +30,23 @@ class UiPresenter:
@@ -418,7 +418,7 @@ index 1e30dea..6c3cf6e 100644
              template = self.MUSIC_STATE_TEXT.get(data.state)
              if not template:
                  return
-@@ -106,9 +133,26 @@ class UiPresenter:
+@@ -106,9 +133,30 @@ class UiPresenter:
          if not isinstance(message, dict):
              return
          msg_type = message.get("type")
@@ -445,4 +445,8 @@ index 1e30dea..6c3cf6e 100644
 +            # MongoBot: el servidor manda avisos (errores, límites); mostrarlos
 +            logger.warning(f"[Servidor] alerta: {message}")
 +            texto = message.get("message") or message.get("status") or str(message)
++            if "long texts" in texto:
++                # MongoBot: el cuadro de texto viaja como "palabra de activación" y el
++                # servidor solo acepta frases cortas
++                texto = "ese texto es muy largo para escribirlo; decímelo por voz o escribí algo corto"
 +            self.set_chat_text(f"Aviso del servidor: {texto}")
