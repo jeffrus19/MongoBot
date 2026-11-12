@@ -349,10 +349,34 @@ index 304b03a..3cac706 100644
          if self._session is not None:
              self._session.unsubscribe()
 diff --git a/src/plugins/ui_presenter.py b/src/plugins/ui_presenter.py
-index 1e30dea..c083ccb 100644
+index 1e30dea..a1c16fd 100644
 --- a/src/plugins/ui_presenter.py
 +++ b/src/plugins/ui_presenter.py
-@@ -30,10 +30,23 @@ class UiPresenter:
+@@ -15,25 +15,38 @@ class UiPresenter:
+     """写界面：对话、音乐、状态、表情、按钮等."""
+ 
+     STATE_TEXT_MAP = {
+-        DeviceState.IDLE: "待命",
+-        DeviceState.LISTENING: "聆听中...",
+-        DeviceState.SPEAKING: "说话中...",
+-        DeviceState.NOTIFYING: "通知播放中...",
++        DeviceState.IDLE: "En espera",
++        DeviceState.LISTENING: "Escuchando...",
++        DeviceState.SPEAKING: "Hablando...",
++        DeviceState.NOTIFYING: "Avisando...",
+     }
+ 
+     MUSIC_STATE_TEXT = {
+-        "playing": "正在播放: {song}",
+-        "paused": "已暂停: {song}",
+-        "stopped": "已停止: {song}",
+-        "completed": "播放完成: {song}",
+-        "error": "播放失败: {song}",
++        "playing": "Sonando: {song}",
++        "paused": "En pausa: {song}",
++        "stopped": "Detenida: {song}",
++        "completed": "Terminó: {song}",
++        "error": "No se pudo reproducir: {song}",
      }
  
      def __init__(self, viewport: Optional["ViewPort"] = None) -> None:
@@ -403,7 +427,8 @@ index 1e30dea..c083ccb 100644
              self.set_status(status_text, connected=True)
  
      def show_network_error(self) -> None:
-         self.set_status("未连接", connected=False)
+-        self.set_status("未连接", connected=False)
++        self.set_status("Sin conexión", connected=False)
 +        if getattr(self, "_mongo", None):
 +            self._mongo.error_de_red()      # MongoBot: se confirma antes de mostrar sin_conexion
  
@@ -450,3 +475,229 @@ index 1e30dea..c083ccb 100644
 +                # servidor solo acepta frases cortas
 +                texto = "ese texto es muy largo para escribirlo; decímelo por voz o escribí algo corto"
 +            self.set_chat_text(f"Aviso del servidor: {texto}")
+diff --git a/src/plugins/ui_session.py b/src/plugins/ui_session.py
+index 5794a86..3141c44 100644
+--- a/src/plugins/ui_session.py
++++ b/src/plugins/ui_session.py
+@@ -70,14 +70,14 @@ class SessionActions:
+         if state != DeviceState.LISTENING and self._manual_recording:
+             self._manual_recording = False
+             if not self._auto_mode:
+-                self._ui.set_button_text("按住后说话")
++                self._ui.set_button_text("Hablar")
+         if self._auto_mode:
+             self._auto_session_active = state in (
+                 DeviceState.LISTENING,
+                 DeviceState.SPEAKING,
+             )
+             self._ui.set_button_text(
+-                "停止对话" if self._auto_session_active else "开始对话"
++                "Detener" if self._auto_session_active else "Empezar"
+             )
+ 
+     async def request_shutdown(self, _data=None) -> None:
+@@ -106,11 +106,11 @@ class SessionActions:
+         if not self._manual_recording:
+             if await self._cmd.start_listening(ListeningMode.MANUAL):
+                 self._manual_recording = True
+-                self._ui.set_button_text("发送")
++                self._ui.set_button_text("Enviar")
+         else:
+             await self._cmd.stop_listening()
+             self._manual_recording = False
+-            self._ui.set_button_text("按住后说话")
++            self._ui.set_button_text("Hablar")
+ 
+     async def auto_toggle(self, _data=None) -> None:
+         self._auto_mode = not self._auto_mode
+@@ -126,10 +126,10 @@ class SessionActions:
+         ):
+             await self._cmd.stop_listening()
+             self._auto_session_active = False
+-            self._ui.set_button_text("开始对话")
++            self._ui.set_button_text("Empezar")
+         elif await self._cmd.start_auto_conversation():
+             self._auto_session_active = True
+-            self._ui.set_button_text("停止对话")
++            self._ui.set_button_text("Detener")
+ 
+     async def abort(self, _data=None) -> None:
+         await self._cmd.abort_speaking(AbortReason.USER_INTERRUPTION)
+diff --git a/src/ui/gui/models/main_model.py b/src/ui/gui/models/main_model.py
+index 75e7c0b..93c2d3c 100644
+--- a/src/ui/gui/models/main_model.py
++++ b/src/ui/gui/models/main_model.py
+@@ -26,8 +26,8 @@ class MainModel(BaseModel):
+         self._status_text = ""
+         self._connected = False
+         self._auto_mode = False
+-        self._mode_text = "手动对话"
+-        self._button_text = "按住后说话"
++        self._mode_text = "Manual"
++        self._button_text = "Hablar"
+ 
+     # ========== Properties ==========
+ 
+@@ -97,8 +97,8 @@ class MainModel(BaseModel):
+         # 默认按钮文案；对话进行中会再被 Session 改成「停止对话」
+         if self._auto_mode != auto:
+             self._auto_mode = auto
+-            self._mode_text = "自动对话" if auto else "手动对话"
+-            self._button_text = "开始对话" if auto else "按住后说话"
++            self._mode_text = "Automático" if auto else "Manual"
++            self._button_text = "Empezar" if auto else "Hablar"
+             self.autoModeChanged.emit()
+             self.modeTextChanged.emit()
+             self.buttonTextChanged.emit()
+diff --git a/src/ui/gui/qml/panels/ChatPanel.qml b/src/ui/gui/qml/panels/ChatPanel.qml
+index 10a6f20..2268623 100644
+--- a/src/ui/gui/qml/panels/ChatPanel.qml
++++ b/src/ui/gui/qml/panels/ChatPanel.qml
+@@ -27,7 +27,7 @@ Rectangle {
+ 
+                 Text {
+                     width: parent.width
+-                    text: mainModel.ttsText || "等待对话..."
++                    text: mainModel.ttsText || "Esperando conversación..."
+                     font.family: Theme.fontFamily
+                     font.pixelSize: Theme.fontSizeMd
+                     color: mainModel.ttsText ? Theme.textPrimary : Theme.textPlaceholder
+diff --git a/src/ui/gui/qml/panels/ControlPanel.qml b/src/ui/gui/qml/panels/ControlPanel.qml
+index a19c997..fc0b3ac 100644
+--- a/src/ui/gui/qml/panels/ControlPanel.qml
++++ b/src/ui/gui/qml/panels/ControlPanel.qml
+@@ -22,13 +22,13 @@ Rectangle {
+             XTextField {
+                 id: inputField
+                 Layout.fillWidth: true
+-                placeholderText: "输入文本消息..."
++                placeholderText: "Escribí..."
+ 
+                 Keys.onReturnPressed: sendText()
+             }
+ 
+             XButton {
+-                text: "发送"
++                text: "Enviar"
+                 onClicked: sendText()
+             }
+         }
+@@ -41,7 +41,7 @@ Rectangle {
+             // 手动/自动模式切换
+             XButton {
+                 Layout.fillWidth: true
+-                text: mainModel.autoMode ? "切换到手动" : "切换到自动"
++                text: mainModel.autoMode ? "Pasar a manual" : "Pasar a automático"
+                 variant: "secondary"
+                 onClicked: eventBridge.onAutoToggle()
+             }
+@@ -58,7 +58,7 @@ Rectangle {
+             // 中断按钮
+             XButton {
+                 Layout.preferredWidth: 80
+-                text: "中断"
++                text: "Cortar"
+                 variant: "secondary"
+                 onClicked: eventBridge.onAbort()
+             }
+diff --git a/src/ui/gui/qml/windows/MainWindow.qml b/src/ui/gui/qml/windows/MainWindow.qml
+index 5532e14..58c8ff6 100644
+--- a/src/ui/gui/qml/windows/MainWindow.qml
++++ b/src/ui/gui/qml/windows/MainWindow.qml
+@@ -59,7 +59,7 @@ AppWindow {
+ 
+                         Text {
+                             anchors.centerIn: parent
+-                            text: (mainModel && mainModel.statusText) ? mainModel.statusText : "待命"
++                            text: (mainModel && mainModel.statusText) ? mainModel.statusText : "En espera"
+                             font.pixelSize: Theme.fontSizeMd
+                             font.weight: Font.Bold
+                             color: Theme.primaryText
+@@ -106,7 +106,7 @@ AppWindow {
+                             Text {
+                                 width: parent.width
+                                 height: parent.height - (musicLineText.visible ? 22 : 0)
+-                                text: (mainModel && mainModel.ttsText) ? mainModel.ttsText : "待命"
++                                text: (mainModel && mainModel.ttsText) ? mainModel.ttsText : "En espera"
+                                 font.pixelSize: Theme.fontSizeSm
+                                 color: Theme.textSecondary
+                                 horizontalAlignment: Text.AlignHCenter
+@@ -150,7 +150,7 @@ AppWindow {
+                         Layout.fillWidth: true
+                         Layout.maximumWidth: 140
+                         Layout.preferredHeight: 38
+-                        text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "按住后说话"
++                        text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "Hablar"
+                         visible: !(mainModel && mainModel.autoMode)
+ 
+                         background: Rectangle {
+@@ -176,7 +176,7 @@ AppWindow {
+                         Layout.fillWidth: true
+                         Layout.maximumWidth: 140
+                         Layout.preferredHeight: 38
+-                        text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "开始对话"
++                        text: (mainModel && mainModel.buttonText) ? mainModel.buttonText : "Empezar"
+                         visible: mainModel && mainModel.autoMode
+ 
+                         background: Rectangle {
+@@ -202,7 +202,7 @@ AppWindow {
+                         Layout.fillWidth: true
+                         Layout.maximumWidth: 120
+                         Layout.preferredHeight: 38
+-                        text: "打断对话"
++                        text: "Cortar"
+ 
+                         background: Rectangle {
+                             color: abortBtn.pressed ? Theme.divider : (abortBtn.hovered ? Theme.backgroundHover : Theme.backgroundSecondary)
+@@ -250,7 +250,7 @@ AppWindow {
+ 
+                                 Text {
+                                     anchors.fill: parent
+-                                    text: "输入文字..."
++                                    text: "Escribí..."
+                                     font: textInput.font
+                                     color: Theme.textPlaceholder
+                                     verticalAlignment: Text.AlignVCenter
+@@ -266,7 +266,7 @@ AppWindow {
+                             Layout.preferredWidth: 60
+                             Layout.maximumWidth: 84
+                             Layout.preferredHeight: 38
+-                            text: "发送"
++                            text: "Enviar"
+ 
+                             background: Rectangle {
+                                 color: sendBtn.pressed ? Theme.primaryPressed : (sendBtn.hovered ? Theme.primaryHover : Theme.primary)
+@@ -292,7 +292,7 @@ AppWindow {
+                         Layout.fillWidth: true
+                         Layout.maximumWidth: 120
+                         Layout.preferredHeight: 38
+-                        text: (mainModel && mainModel.modeText) ? mainModel.modeText : "手动对话"
++                        text: (mainModel && mainModel.modeText) ? mainModel.modeText : "Manual"
+ 
+                         background: Rectangle {
+                             color: modeBtn.pressed ? Theme.divider : (modeBtn.hovered ? Theme.backgroundHover : Theme.backgroundSecondary)
+@@ -319,7 +319,7 @@ AppWindow {
+                         Layout.fillWidth: true
+                         Layout.maximumWidth: 120
+                         Layout.preferredHeight: 38
+-                        text: "参数设置"
++                        text: "Ajustes"
+ 
+                         background: Rectangle {
+                             color: settingsBtn.pressed ? Theme.divider : (settingsBtn.hovered ? Theme.backgroundHover : Theme.backgroundSecondary)
+diff --git a/src/ui/gui/services/tray_service.py b/src/ui/gui/services/tray_service.py
+index a2d78b4..73e31b8 100644
+--- a/src/ui/gui/services/tray_service.py
++++ b/src/ui/gui/services/tray_service.py
+@@ -63,9 +63,9 @@ class TrayService(QObject):
+ 
+             # 创建菜单
+             self._menu = QMenu()
+-            self._menu.addAction("显示窗口", on_show)
++            self._menu.addAction("Mostrar ventana", on_show)
+             self._menu.addSeparator()
+-            self._menu.addAction("退出", on_quit)
++            self._menu.addAction("Salir", on_quit)
+ 
+             self._tray.setContextMenu(self._menu)
+ 
