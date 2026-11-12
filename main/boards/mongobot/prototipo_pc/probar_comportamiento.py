@@ -17,6 +17,14 @@ from src.constants.constants import DeviceState as S
 from src.plugins.ui_presenter import UiPresenter
 from src.plugins import mongo_caras, mongo_alarmas, mongo_comportamiento as mc
 
+# Las pruebas no dependen de la hora en que se corran: por defecto, jueves 12:00.
+from datetime import datetime as _dt
+_init_real = mc.Comportamiento.__init__
+def _init_fijo(self, *a, momento=None, **k):
+    _init_real(self, *a, momento=momento or (lambda: _dt(2026, 11, 12, 12, 0)), **k)
+mc.Comportamiento.__init__ = _init_fijo
+
+
 class Pantalla:
     def __init__(self): self.cara=None; self.texto=""
     def set_emotion(self, e): self.cara=e

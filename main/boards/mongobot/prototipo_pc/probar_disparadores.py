@@ -13,13 +13,21 @@ from src.constants.constants import DeviceState as S
 from src.plugins.ui_presenter import UiPresenter
 from src.plugins import mongo_caras, mongo_alarmas, mongo_comportamiento as mc
 
+# Las pruebas no dependen de la hora en que se corran: por defecto, jueves 12:00.
+from datetime import datetime as _dt
+_init_real = mc.Comportamiento.__init__
+def _init_fijo(self, *a, momento=None, **k):
+    _init_real(self, *a, momento=momento or (lambda: _dt(2026, 11, 12, 12, 0)), **k)
+mc.Comportamiento.__init__ = _init_fijo
+
+
 SERVIDOR = ["neutral","happy","laughing","funny","sad","angry","crying","loving","embarrassed","surprised","shocked",
             "thinking","winking","cool","relaxed","delicious","kissy","confident","sleepy","silly","confused"]
 SOLO_PLACA = {"conectando": "conectando al WiFi (placa)", "configurar_wifi": "modo punto de acceso (placa)",
               "actualizando": "actualización de firmware (placa)", "tacto_cosquillas": "tocar la pantalla (placa)",
               "tacto_molesto": "tocar mucho la pantalla (placa)", "tacto_despertar": "tocarlo dormido (placa)",
               "mensaje": "mensaje de Telegram (función futura)", "pomodoro_trabajo": "pomodoro (función futura)",
-              "pomodoro_descanso": "pomodoro (función futura)", "escuchando": "reemplazada por conversa_escucha"}
+              "pomodoro_descanso": "pomodoro (función futura)"}
 
 class Pantalla:
     def __init__(self): self.cara=None
@@ -62,17 +70,19 @@ async def main():
 
     # 3) capa de comportamiento
     pan, pres = nuevo()
-    pres.show_device_state(S.LISTENING); anotar("conversa_escucha", "estado escuchando", pan.cara == "conversa_escucha", pan.cara)
+    pres.show_device_state(S.LISTENING); anotar("escuchando", "primera pregunta", pan.cara == "escuchando", pan.cara)
     pres.show_protocol_message({"type":"stt","text":"hola"}); anotar("pensando", "llega lo que dijiste (stt)", pan.cara == "pensando", pan.cara)
     pres.show_device_state(S.SPEAKING); anotar("conversa_habla", "estado hablando sin emoción", pan.cara == "conversa_habla", pan.cara)
+    pres.show_device_state(S.LISTENING); anotar("conversa_escucha", "conversación continua", pan.cara == "conversa_escucha", pan.cara)
+    pres.show_device_state(S.SPEAKING)
     for i in range(3):
         pres.show_device_state(S.LISTENING); pres.show_device_state(S.SPEAKING); pres.show_protocol_message({"type":"llm","emotion":"angry"})
     anotar("furioso", "tres 'angry' seguidos", pan.cara == "furioso", pan.cara)
     pres.show_device_state(S.IDLE); pres.show_network_error()
     anotar("sin_conexion", "error de red en espera", pan.cara == "sin_conexion", pan.cara)
-    mc.actual()._dormido = True; mc.actual()._sin_red = False
+    mc.actual()._dormido = True; mc.actual()._sin_red = False; mc.actual()._fin_respuesta = float("-inf")
     pres.show_device_state(S.LISTENING); anotar("despertar", "le hablás dormido", pan.cara == "despertar", pan.cara)
-    await asyncio.sleep(1.6); anotar("conversa_escucha", "después de despertar", pan.cara == "conversa_escucha", pan.cara)
+    await asyncio.sleep(1.6); anotar("escuchando", "después de despertar", pan.cara == "escuchando", pan.cara)
     pres.show_device_state(S.IDLE)
     from src.mcp.tools.music.events import MusicStateData
     pres.show_music_state(MusicStateData(state="playing", song="Canción", position=0, duration=180))

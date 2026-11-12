@@ -10,6 +10,14 @@ sys.path.insert(0, '.')
 from src.constants.constants import DeviceState as S
 from src.plugins.ui_presenter import UiPresenter
 from src.plugins import mongo_caras, mongo_alarmas, mongo_comportamiento as mc
+
+# Las pruebas no dependen de la hora en que se corran: por defecto, jueves 12:00.
+from datetime import datetime as _dt
+_init_real = mc.Comportamiento.__init__
+def _init_fijo(self, *a, momento=None, **k):
+    _init_real(self, *a, momento=momento or (lambda: _dt(2026, 11, 12, 12, 0)), **k)
+mc.Comportamiento.__init__ = _init_fijo
+
 from src.mcp.tools.cara import register_cara_tools
 from src.mcp.tools.music.events import MusicStateData
 
@@ -58,7 +66,7 @@ async def main():
     print("2. Conversación nueva desde reposo con una cara pedida")
     pan, pres = nuevo()
     await cara("presumido", 20); pres.show_device_state(S.LISTENING)
-    ver("lo llamás", pan.cara, "conversa_escucha")
+    ver("lo llamás", pan.cara, "escuchando")
 
     print("3. Alarma mientras duerme")
     pan, pres = nuevo()
@@ -132,7 +140,7 @@ async def main():
     m = lambda st: pres.show_music_state(MusicStateData(state=st, song="x", position=0, duration=100))
     m("playing"); ver("suena", pan.cara, "musica")
     m("paused"); ver("pausa", pan.cara, "neutral")
-    m("playing"); pres.show_device_state(S.LISTENING); ver("le hablás con música", pan.cara, "conversa_escucha")
+    m("playing"); pres.show_device_state(S.LISTENING); ver("le hablás con música", pan.cara, "escuchando")
     pres.show_device_state(S.IDLE); ver("termina la charla, sigue la música", pan.cara, "musica")
     m("completed"); ver("terminó la canción", pan.cara, "neutral")
 
@@ -166,6 +174,53 @@ async def main():
     await cara("videojuego", 2)
     ver("pedido por voz (volumen normal)", [s for s in sonidos if s[1]][-1], ("videojuego", True, False))
     mongo_caras.soltar()
+
+    print("14. Noche (22:00 a 6:00)")
+    hora = [datetime(2026,11,12,21,59)]
+    pan, pres = nuevo(); c = mc.actual(); c._momento = lambda: hora[0]
+    def quieto(seg): c._contacto = c._reloj() - seg
+    def dormirse():
+        quieto(61); c.tic(); c._fase_hasta = 0; c.tic()
+    quieto(61); c.tic(); ver("21:59 un minuto solo: se aburre", pan.cara, "aburrido")
+    hora[0] = datetime(2026,11,12,22,0); pres.show_device_state(S.LISTENING); pres.show_device_state(S.IDLE)
+    quieto(30); c.tic(); ver("22:00, 30 s solo: sigue despierto", pan.cara, "neutral")
+    quieto(61); c.tic(); ver("22:00, un minuto solo: bosteza", pan.cara, "bostezo")
+    c._fase_hasta = 0; c.tic(); ver("y se duerme", (pan.cara, c._dormido_noche), ("sleepy", True))
+    for _ in range(5): c.tic()
+    ver("de noche no hace actividades", pan.cara, "sleepy")
+    pres.show_device_state(S.LISTENING); ver("lo despertás por su nombre", pan.cara, "despertar")
+    mongo_caras.soltar(); ver("te escucha", pan.cara, "escuchando")
+    pres.show_protocol_message({"type":"stt","text":"qué hora es"}); pres.show_device_state(S.SPEAKING); pres.show_device_state(S.IDLE)
+    dormirse(); ver("termina la charla y al minuto vuelve a dormir", pan.cara, "sleepy")
+    enviados.clear(); it = {"tipo":"recordatorio","texto":"pastilla"}
+    mongo_alarmas._sonando = {"item": it, "veces": 1, "ultimo": 0}
+    await mongo_alarmas._gritar(it, 1); ver("suena un recordatorio dormido", pan.cara, "recordatorio")
+    pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type":"stt","text":enviados[-1]})
+    pres.show_device_state(S.SPEAKING); ver("lo grita despierto", pan.cara, "recordatorio")
+    pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type":"stt","text":"listo"})
+    pres.show_device_state(S.SPEAKING); pres.show_device_state(S.IDLE)
+    dormirse(); ver("después del recordatorio vuelve a dormir", pan.cara, "sleepy")
+    hora[0] = datetime(2026,11,13,5,59); c.tic(); ver("5:59 sigue dormido", pan.cara, "sleepy")
+    hora[0] = datetime(2026,11,13,6,0); c.tic(); ver("6:00 se levanta solo", (pan.cara, c._dormido), ("despertar", False))
+    mongo_caras.soltar(); c.tic(); ver("y queda en reposo", pan.cara, "neutral")
+    quieto(61); c.tic(); ver("6:01, un minuto solo: ya no se duerme, se aburre", pan.cara, "aburrido")
+    mongo_caras.soltar()
+
+    print("15. Pregunta suelta y conversación continua")
+    pan, pres = nuevo(); c = mc.actual()
+    pres.show_device_state(S.LISTENING); ver("primera pregunta", pan.cara, "escuchando")
+    pres.show_protocol_message({"type":"stt","text":"hola"}); ver("piensa", pan.cara, "pensando")
+    pres.show_device_state(S.SPEAKING); ver("responde sin emoción", pan.cara, "conversa_habla")
+    pres.show_device_state(S.LISTENING); ver("modo automático: sigue la conversación", pan.cara, "conversa_escucha")
+    pres.show_protocol_message({"type":"stt","text":"y vos?"}); pres.show_device_state(S.SPEAKING)
+    pres.show_protocol_message({"type":"llm","emotion":"happy"}); ver("responde feliz", pan.cara, "happy")
+    pres.show_device_state(S.IDLE); ver("termina", pan.cara, "neutral")
+    pres.show_device_state(S.LISTENING); ver("lo llamás a los pocos segundos", pan.cara, "conversa_escucha")
+    pres.show_device_state(S.SPEAKING); pres.show_device_state(S.IDLE)
+    c._fin_respuesta -= 31
+    pres.show_device_state(S.LISTENING); ver("más de 30 s después: pregunta nueva", pan.cara, "escuchando")
+    pres.show_device_state(S.IDLE); c._fin_respuesta = float("-inf"); c._dormido = True
+    pres.show_device_state(S.LISTENING); mongo_caras.soltar(); ver("despertarlo es una pregunta nueva", pan.cara, "escuchando")
     print(f"\n{ok_total} bien, {fallas} fallas")
 
 asyncio.run(main())

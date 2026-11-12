@@ -68,9 +68,21 @@ respetar estas reglas, porque cada una corrigió un error real:
    bajar la ganancia del códec mientras suenen. El loop del videojuego es propio:
    `inactividad/videojuego.ogg`, fuente en `fuentes_minimal/audio_videojuego.py`.
 
+10. **Pregunta suelta y conversación continua.** Lo llamás desde el reposo:
+   escuchando. Desde el segundo turno (vuelve a escuchar justo después de hablar, en
+   modo automático o tiempo real, o lo llamás de nuevo antes de 30 s): conversa_escucha,
+   la cúpula de cerca. Al responder sin emoción: conversa_habla (globitos) en los dos
+   casos. Pasados 30 s en reposo, la conversación termina y la próxima vuelve a
+   escuchando. Despertarlo cuenta como pregunta nueva.
+11. **Noche: duerme de 22:00 a 6:00, todos los días.** Al minuto sin hablarle bosteza,
+   dice buenas noches y se duerme (sin actividades ni llamarte). Se despierta si lo
+   llamás por su nombre o si suena una alarma o un recordatorio; al minuto de terminar
+   vuelve a dormirse. A las 6:00 se levanta solo (despertar y "buenos días"). De día
+   sigue la siesta a los 10 min sin interacción.
+
 ### Matriz de disparadores (69 animaciones)
 
-- **Con disparador propio (45):** las 21 emociones del servidor, conversa_escucha,
+- **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,
   conversa_habla, pensando, furioso, despertar, saludo, sin_conexion, aburrido,
   mirando, llamando, ejercicio, leyendo, guitarra, videojuego (cada una en su horario), bostezo, sleepy,
   navidad, anio_nuevo, musica, volumen, clima_sol/nube/lluvia, alarma,
@@ -81,7 +93,7 @@ respetar estas reglas, porque cada una corrigió un error real:
 - **Personalidad, solo por show_face** (las elige la IA según la descripción de la
   herramienta): curioso, decepcionado, esceptico, eureka, excited, ignorando,
   ofendido, orgulloso, picaro, presumido, rodar_ojos, smug, terrified.
-- **Sobra:** escuchando (la reemplazó conversa_escucha). neutral es el reposo.
+- neutral es el reposo.
 
 ## Orden sugerido al portar
 

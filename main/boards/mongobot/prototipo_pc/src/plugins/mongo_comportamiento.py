@@ -5,9 +5,15 @@ servidor (lo que dijiste, la emoción de la respuesta) y un "tic" por segundo, y
 elige la animación:
 
 Conversación
-- Escuchando            -> conversa_escucha (cúpula que asiente)
+- Primera pregunta      -> escuchando (lo llamás desde el reposo)
+- Conversación continua -> conversa_escucha (cúpula de cerca que asiente): desde el segundo
+                           turno, o sea, cuando vuelve a escuchar justo después de hablar
+                           (modo automático o tiempo real) o lo llamás de nuevo antes de
+                           CONVERSA_VENTANA segundos. Pasado ese rato en reposo, la
+                           conversación se da por terminada y la próxima vuelve a escuchando
 - Ya hablaste (stt)     -> pensando, hasta que empieza a responder
 - Hablando              -> la emoción que mandó el servidor; si es neutral, conversa_habla
+                           (globitos), en la primera pregunta y en la conversación continua
 - Enojo repetido        -> si llega "angry" 3 veces en 2 minutos, pasa a furioso
 - Si estaba dormido     -> despertar un momento antes de escuchar
 
@@ -26,6 +32,12 @@ Inactividad (sin que le hablés)
                            Fuera de horario (de noche) solo mira alrededor. Pedidas con
                            show_face salen a cualquier hora y suenan a volumen normal
 - a los 10 min          -> bostezo y se duerme (sleepy) hasta que le hablés
+
+Noche (de 22:00 a 6:00, todos los días)
+- Al minuto sin hablarle -> bostezo, "buenas noches" y se duerme. Si lo despertás (por
+                           su nombre) o suena una alarma o un recordatorio, se despierta,
+                           y al minuto de terminar vuelve a dormirse. A las 6:00 se
+                           levanta solo (despertar).
 
 Las caras pedidas con la herramienta show_face (mongo_caras) siguen mandando: mientras
 dura su candado, lo que elija esta capa queda pendiente.
@@ -56,6 +68,9 @@ SALUDO = 3
 DESPERTAR = 1.4
 ENOJO_VENTANA = 120
 ENOJO_VECES = 3
+CONVERSA_VENTANA = 30     # segundos en reposo tras una respuesta en que sigue la conversación
+NOCHE = (22, 6)            # duerme de 22:00 a 6:00
+DORMIR_NOCHE = 60          # de noche, segundos sin hablarle antes de dormirse
 
 # actividad de inactividad -> (días, hora de inicio, hora de fin); lunes = 0
 TODOS = (0, 1, 2, 3, 4, 5, 6)
@@ -89,9 +104,12 @@ class Comportamiento:
         self.estado = "idle"
         self.cara = None
         self._emocion_turno: str | None = None
+        self._en_conversacion = False  # conversación continua (segundo turno en adelante)
+        self._fin_respuesta = float("-inf")
         self._enojos: list[float] = []
         self._contacto = reloj()
         self._dormido = False
+        self._dormido_noche = False    # se durmió por la hora: a las 6:00 se levanta solo
         self._sin_red = False
         self._fase = "reposo"          # reposo | aburrido | actividad | entre | llamando | bostezo | dormido
         self._fase_hasta = 0.0
@@ -152,6 +170,22 @@ class Comportamiento:
         m = self._momento()
         return m.weekday() in dias and desde <= m.hour < hasta
 
+    def es_de_noche(self) -> bool:
+        h = self._momento().hour
+        return h >= NOCHE[0] or h < NOCHE[1]
+
+    def _levantarse(self, ahora: float) -> None:
+        """A las 6:00: se despierta solo."""
+        self._dormido = self._dormido_noche = False
+        self._contacto, self._fase = ahora, "reposo"
+        from src.plugins import mongo_caras
+
+        if not mongo_caras.bloqueada():
+            mongo_caras.mostrar("despertar", DESPERTAR)
+            self.cara = "despertar"
+        self._texto("¡Buenos días! Ya amaneció, y yo igual de guapo.")
+        logger.info("[Comportamiento] son las 6:00, se levanta")
+
     def _cara_reposo(self) -> str:
         hoy = self._hoy()
         if hoy.month == 12 and 15 <= hoy.day <= 25:
@@ -165,6 +199,7 @@ class Comportamiento:
         estaba_dormido = self._dormido
         self._contacto = self._reloj()
         self._dormido = False
+        self._dormido_noche = False
         self._fase = "reposo"
         self._actividades_hechas = 0
         self._sonido_actividad(False)
@@ -182,7 +217,14 @@ class Comportamiento:
         """estado: 'idle', 'listening', 'speaking' (o los DeviceState equivalentes)."""
         estado = str(getattr(estado, "value", estado)).lower()
         anterior, self.estado = self.estado, estado
+        if anterior == "speaking" and estado != "speaking":
+            self._fin_respuesta = self._reloj()
         if estado == "listening":
+            if anterior == "speaking" or (anterior == "idle"
+                                          and self._reloj() - self._fin_respuesta <= CONVERSA_VENTANA):
+                self._en_conversacion = True
+            elif anterior == "idle":
+                self._en_conversacion = False
             self._sin_red = False
             estaba_dormido = self._contactar()
             if anterior != "listening":
@@ -197,7 +239,7 @@ class Comportamiento:
                 # una alarma que suena mientras duerme no se tapa con el despertar
                 mongo_caras.mostrar("despertar", DESPERTAR)
                 self.cara = "despertar"
-            self._mostrar("conversa_escucha")
+            self._mostrar(self.cara_escucha())
         elif estado == "speaking":
             self._sin_red = False
             self._contactar()
@@ -238,7 +280,13 @@ class Comportamiento:
         de hablar vuelve a la cara de escucha."""
         if (estado or "").lower() == "stop" and self.estado == "listening":
             self._emocion_turno = None
+            self._en_conversacion = True
+            self._fin_respuesta = self._reloj()
             self._mostrar("conversa_escucha")
+
+    def cara_escucha(self) -> str:
+        """escuchando en la primera pregunta; conversa_escucha en la conversación continua."""
+        return "conversa_escucha" if self._en_conversacion else "escuchando"
 
     def al_musica(self, estado: str) -> None:
         """Estado del reproductor: playing / paused / stopped / completed / error."""
@@ -273,16 +321,21 @@ class Comportamiento:
                 self._mostrar("musica")
             return
         quieto = ahora - self._contacto
+        noche = self.es_de_noche()
         if self._dormido:
+            if self._dormido_noche and not noche:
+                self._levantarse(ahora)
             return
-        if quieto >= DORMIR and self._fase != "bostezo":
+        if quieto >= (DORMIR_NOCHE if noche else DORMIR) and self._fase != "bostezo":
             self._fase, self._fase_hasta = "bostezo", ahora + BOSTEZO
             self._mostrar("bostezo")
-            self._texto("Bueno... me voy a echar una siestita.")
+            self._texto("Buenas noches... a dormir, que la belleza no se mantiene sola."
+                        if noche else "Bueno... me voy a echar una siestita.")
             return
         if self._fase == "bostezo":
             if ahora >= self._fase_hasta:
                 self._fase, self._dormido = "dormido", True
+                self._dormido_noche = noche
                 self._mostrar("sleepy")
             return
         if quieto < ABURRIRSE:
