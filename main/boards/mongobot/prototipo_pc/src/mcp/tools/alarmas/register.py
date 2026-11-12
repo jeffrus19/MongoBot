@@ -83,11 +83,10 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
     async def stop_ringing(args: dict[str, Any]) -> str:
         return _ok(stopped=al.detener())
 
-    al_sonar = ("IMPORTANT: when a message arrives that starts with 'ALARMA', 'TEMPORIZADOR' or "
-                "'RECORDATORIO' (optionally followed by 'OTRA VEZ' and a note), it is not the user talking: it is "
-                "one of these alarms going off. Then shout exactly '¡RING RING RING!' and add one short sentence "
-                "in your personality: wake the user up (ALARMA), say the time is up (TEMPORIZADOR) or remind "
-                "them of the note (RECORDATORIO). With 'OTRA VEZ', shout louder and more annoyed. "
+    al_sonar = ("IMPORTANT: when a message arrives that starts with 'RING RING RIIIIING', it is NOT the user "
+                "talking: it is one of these alarms going off. Then just shout that exact message, word by word "
+                "(e.g. 'RING RING RIIIIING ¡ALARMA!'), and nothing else: do not ask anything, do not offer to set "
+                "another alarm, do not comment. "
                 "The alarm keeps ringing every 30 seconds until the user explicitly tells you to stop it; "
                 "if they talk about something else, answer but do NOT stop it.\n")
     dias_ayuda = ("days: optional repeat. '' = only once, 'diario' = every day, 'lun-vie' = weekdays, "

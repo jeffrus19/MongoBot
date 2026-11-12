@@ -158,6 +158,15 @@ respetar estas reglas, porque cada una corrigió un error real:
    etiqueta es opcional); cancel_alarm sin decir cuál cancela la próxima, y con una hora
    ("6:30") cancela las de esa hora.
 
+24. **Cómo suena la alarma.** Timbre de despertador mecánico en bucle (alarma.wav /
+   `inactividad/alarma.ogg`, fuente `audio_alarma.py`) desde que se cumple hasta que le
+   decís que pare, y cada 30 s MongoBot grita con su voz exactamente
+   "RING RING RIIIIING ¡ALARMA!" ("¡SE ACABÓ EL TIEMPO!" en el temporizador,
+   "¡RECORDATORIO! nota" en el recordatorio). Ese texto es lo que se le manda al
+   servidor; la regla de repetirlo tal cual va en la descripción de las herramientas y
+   en el rol del agente (porque en el primer turno las herramientas pueden no estar
+   cargadas todavía).
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

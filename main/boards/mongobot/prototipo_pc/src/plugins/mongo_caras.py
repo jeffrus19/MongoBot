@@ -29,7 +29,9 @@ _sonando = False
 _hasta_respuesta = False      # la cara se suelta cuando MongoBot termina de contestar
 _minimo_hasta = 0.0           # ...pero no antes de este momento (tiempo mínimo)
 CON_SONIDO = ("guitarra", "videojuego")     # caras que llevan un loop de audio
-GOLPES = {"llamando": True, "saludo": False}  # MongoBot toca la pantalla: nombre -> se repite
+GOLPES = {"llamando": True, "saludo": False,  # MongoBot toca la pantalla: nombre -> se repite
+          "alarma": True, "temporizador": True, "recordatorio": True}   # timbre de despertador en bucle
+ARCHIVO_SONIDO = {"temporizador": "alarma", "recordatorio": "alarma"}   # usan el mismo timbre
 
 
 def conectar(fn: Callable[[str], None] | None) -> None:
@@ -79,9 +81,10 @@ def _sonido(nombre: str, encender: bool, suave: bool = False) -> None:
             from src.utils.resource_finder import get_assets_dir
 
             carpeta = get_assets_dir() / "inactividad"
-            wav = carpeta / (f"{nombre}_suave.wav" if suave else f"{nombre}.wav")
+            base = ARCHIVO_SONIDO.get(nombre, nombre)
+            wav = carpeta / (f"{base}_suave.wav" if suave else f"{base}.wav")
             if not wav.exists():
-                wav = carpeta / f"{nombre}.wav"
+                wav = carpeta / f"{base}.wav"
             if wav.exists():
                 repite = winsound.SND_LOOP if GOLPES.get(nombre, True) else 0
                 winsound.PlaySound(str(wav), winsound.SND_FILENAME | winsound.SND_ASYNC | repite)

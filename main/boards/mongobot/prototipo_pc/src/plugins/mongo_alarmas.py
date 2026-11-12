@@ -267,20 +267,24 @@ PREFIJOS = {"alarma": "ALARMA", "temporizador": "TEMPORIZADOR", "recordatorio": 
 LARGO_MAX = 60     # el servidor rechaza (alerta) los avisos largos: se mandan cortos
 
 
+RING = "RING RING RIIIIING"
+GRITOS = {"alarma": "¡ALARMA!", "temporizador": "¡SE ACABÓ EL TIEMPO!", "recordatorio": "¡RECORDATORIO!"}
+
+
 def _mensaje(it: dict, vez: int) -> str:
-    """Aviso corto, p. ej. 'ALARMA: gimnasio'. La instrucción de gritar
-    '¡RING RING RING!' está en la descripción de las herramientas self.alarm.*."""
-    prefijo = PREFIJOS.get(it["tipo"], "ALARMA")
-    if vez >= 2:
-        prefijo += " OTRA VEZ"
+    """Lo que MongoBot tiene que gritar, tal cual: 'RING RING RIIIIING ¡ALARMA!'. Va corto
+    porque el servidor rechaza los textos largos; la instrucción de repetirlo sin agregar
+    nada está en la descripción de las herramientas self.alarm.* y en el rol del agente."""
+    msg = f"{RING} {GRITOS.get(it['tipo'], '¡ALARMA!')}"
     texto = (it.get("texto") or "").strip()
-    msg = f"{prefijo}: {texto}" if texto else prefijo
+    if texto:
+        msg += f" {texto}"
     return msg[:LARGO_MAX]
 
 
 def es_aviso_propio(texto: str) -> bool:
     t = (texto or "").strip().upper()
-    return any(t.startswith(p) for p in PREFIJOS.values())
+    return t.startswith("RING RING") or any(t.startswith(p) for p in PREFIJOS.values())
 
 
 async def _gritar(it: dict, vez: int) -> None:
