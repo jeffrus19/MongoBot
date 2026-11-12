@@ -16,6 +16,9 @@ Lo que cambia:
   negra que gira sobre una esfera, colores por emoción) con las 24 emociones y
   el modo conversación. Pensado para dibujarse en vivo con LVGL; por ahora las
   caras del firmware siguen siendo los GIF de `emojis/`.
+- Prototipo de PC en `prototipo_pc/`: copia de lo que se agregó a py-xiaozhi
+  (caras por MCP, alarmas que gritan "RING RING RING") y la guía
+  `PORTAR_A_ESP32.md` con qué va a dónde en el firmware.
 - Tema oscuro, para que la interfaz combine con el fondo negro de las caras.
 - Palabras de activación propias con MultiNet: "mongo bot" y "monguito"
   (definidas en `config.json`).

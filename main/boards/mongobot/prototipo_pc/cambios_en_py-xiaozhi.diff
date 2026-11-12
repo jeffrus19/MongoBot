@@ -1,0 +1,109 @@
+--- a/src/plugins/ui_presenter.py
++++ b/src/plugins/ui_presenter.py
+@@ -30,10 +30,19 @@
+     }
+ 
+     def __init__(self, viewport: Optional["ViewPort"] = None) -> None:
+-        self._vp = viewport
++        self._vp = None
++        self.bind(viewport)
+ 
+     def bind(self, viewport: Optional["ViewPort"]) -> None:
+         self._vp = viewport
++        # MongoBot: la herramienta MCP de caras pinta directo en la pantalla
++        from src.plugins import mongo_caras
++
++        mongo_caras.conectar(self._poner_cara if viewport else None)
++
++    def _poner_cara(self, emotion: str) -> None:
++        if self._vp:
++            self._vp.set_emotion(emotion)
+ 
+     @property
+     def viewport(self) -> Optional["ViewPort"]:
+@@ -48,6 +57,13 @@
+             self._vp.set_music_line(text)
+ 
+     def set_emotion(self, emotion: str) -> None:
++        # MongoBot: si la IA pidió una cara con self.screen.show_face, se respeta
++        # hasta que termine su tiempo; lo que llegue mientras tanto queda pendiente.
++        from src.plugins import mongo_caras
++
++        if mongo_caras.bloqueada():
++            mongo_caras.guardar_pendiente(emotion)
++            return
+         if self._vp:
+             self._vp.set_emotion(emotion)
+ 
+@@ -109,6 +125,11 @@
+         if msg_type in ("tts", "stt"):
+             if text := message.get("text"):
+                 self.set_chat_text(text)
++                if msg_type == "stt":
++                    # MongoBot: si le hablás mientras grita la alarma, se calla
++                    from src.plugins import mongo_alarmas
++
++                    mongo_alarmas.usuario_hablo(text)
+         elif msg_type == "llm":
+             if emotion := message.get("emotion"):
+                 self.set_emotion(emotion)
+--- a/src/plugins/ui.py
++++ b/src/plugins/ui.py
+@@ -41,6 +41,7 @@
+         self._stopping = False
+         self._viewport_closed = False
+         self._subscriptions = []
++        self._alarmas_task: asyncio.Task | None = None
+ 
+     async def setup(self, ctx: "PluginContext", cmd: "PluginCommands") -> None:
+         await super().setup(ctx, cmd)
+@@ -72,6 +73,16 @@
+         if self._session:
+             self._session.subscribe(bus)
+ 
++        # MongoBot: alarmas, temporizadores y recordatorios. Cuando llega la hora,
++        # se le manda un aviso al servidor para que MongoBot grite "RING RING RING".
++        from src.plugins import mongo_alarmas
++
++        async def _enviar_aviso(texto: str) -> None:
++            await bus.emit(Events.UI_SEND_TEXT, texto)
++
++        mongo_alarmas.conectar_envio(_enviar_aviso)
++        self._alarmas_task = self._cmd.spawn(mongo_alarmas.correr(), name="ui:mongo_alarmas")
++
+         if self.viewport:
+             self._viewport_task = self._cmd.spawn(
+                 self._run_viewport(), name=f"ui:{self.mode}:start"
+@@ -96,6 +107,12 @@
+ 
+     async def stop(self) -> None:
+         self._stopping = True
++        from src.plugins import mongo_alarmas
++
++        mongo_alarmas.conectar_envio(None)
++        if self._alarmas_task is not None:
++            self._alarmas_task.cancel()
++            self._alarmas_task = None
+         self._presenter.bind(None)
+         if self._session is not None:
+             self._session.unsubscribe()
+--- a/src/mcp/mcp_server.py
++++ b/src/mcp/mcp_server.py
+@@ -140,12 +140,17 @@
+             register_music_tools(common_tools.append, music_player)
+ 
+         from src.mcp.tools.app import register_app_tools
++        from src.mcp.tools.cara import register_cara_tools
+         from src.mcp.tools.volume import register_volume_tools
+         from src.mcp.tools.weather import register_weather_tools
+ 
+         register_volume_tools(common_tools.append, volume_controller)
+         register_app_tools(common_tools.append)
+         register_weather_tools(common_tools.append)
++        register_cara_tools(common_tools.append)  # MongoBot: caras animadas
++        from src.mcp.tools.alarmas import register_alarma_tools
++
++        register_alarma_tools(common_tools.append)  # MongoBot: alarmas y recordatorios
+ 
+         preserved = [
+             tool for tool in self.tools
