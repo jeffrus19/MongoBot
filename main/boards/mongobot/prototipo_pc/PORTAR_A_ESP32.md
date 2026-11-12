@@ -30,7 +30,7 @@ de herramientas MCP**, así el texto de personalidad en xiaozhi.me no cambia.
 | `mongo_comportamiento.Comportamiento` (al_estado, al_texto_usuario, al_emocion, sin_conexion, tic) | Una clase igual en el board: `al_estado` desde `Application::SetDeviceState`, `al_texto_usuario` al recibir `stt`, `al_emocion` donde el firmware llama `SetEmotion` desde el mensaje `llm`, y `tic` desde un timer de 1 s. Los tiempos (60 s aburrirse, 10 min dormir, etc.) igual. |
 | Revisión cada segundo (`asyncio`) | Un `esp_timer` o tarea de FreeRTOS que revisa una vez por segundo. |
 | Aviso al servidor con `UI_SEND_TEXT` para que grite "RING RING RING" | En py-xiaozhi ese texto viaja como mensaje de palabra de activación (`listen` / `detect` con texto), igual que en el firmware (`SendWakeWordDetected`). **Probado:** el servidor solo acepta textos cortos; uno largo responde con `type=alert`. Por eso el aviso va corto (`ALARMA: gimnasio`, máx. 60 caracteres) y la instrucción de gritar está en la descripción de las herramientas `self.alarm.*`. En la placa: mismo mensaje y mismos avisos cortos. |
-| Se calla si el usuario habla (mensaje `stt`) | Igual: al recibir `stt` del servidor que no sea uno de los avisos propios (empiezan con ALARMA, TEMPORIZADOR o RECORDATORIO), o al tocar la pantalla. |
+| Se calla solo cuando el usuario pide que pare (`stt` con una orden de parar) | Igual, o al tocar la pantalla. |
 | Alertas del servidor (`type=alert`) se muestran y se registran | Mostrarlas en la pantalla (el firmware ya trae `Alert`). |
 | Sonido de guitarra y videojuego con `winsound` (`<nombre>.wav` pedido, `<nombre>_suave.wav` en inactividad) | `guitarra.ogg` y `videojuego.ogg` (Opus 24 kHz) en la partición de assets, reproducido por el códec de audio; en inactividad, con la ganancia más baja. |
 
@@ -149,6 +149,14 @@ respetar estas reglas, porque cada una corrigió un error real:
    la inactividad; se reinicia cada día). Pedido por voz, sin límite. Cuando se acaba,
    el relleno de día queda solo con leyendo. En la placa: guardar el contador con la
    fecha en NVS para que no se reinicie si se reinicia la placa.
+
+22. **La alarma suena hasta que le digás que pare.** Grita cada 30 s sin límite. Solo se
+   apaga con una orden de parar ("para", "detené", "apagala", "ya", "basta", "callate",
+   "ya me levanté"...; regex `PARAR` en mongo_alarmas) o la herramienta stop_ringing.
+   Hablarle de otra cosa no la apaga. En la placa también al tocar la pantalla.
+23. **Nunca pregunta qué o cuál alarma.** set_alarm se llama de una con la hora (la
+   etiqueta es opcional); cancel_alarm sin decir cuál cancela la próxima, y con una hora
+   ("6:30") cancela las de esa hora.
 
 ### Matriz de disparadores (69 animaciones)
 

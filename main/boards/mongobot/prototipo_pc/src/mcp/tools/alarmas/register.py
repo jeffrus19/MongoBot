@@ -77,7 +77,7 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
     async def cancel_alarm(args: dict[str, Any]) -> str:
         quitadas = al.cancelar(str(args.get("id", "")))
         if not quitadas:
-            return _error("no alarm with that id; use list_alarms to see the ids")
+            return _error("there is no alarm to cancel with that id/time")
         return _ok(cancelled=[al.describir(it) for it in quitadas])
 
     async def stop_ringing(args: dict[str, Any]) -> str:
@@ -87,7 +87,9 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
                 "'RECORDATORIO' (optionally followed by 'OTRA VEZ' and a note), it is not the user talking: it is "
                 "one of these alarms going off. Then shout exactly '¡RING RING RING!' and add one short sentence "
                 "in your personality: wake the user up (ALARMA), say the time is up (TEMPORIZADOR) or remind "
-                "them of the note (RECORDATORIO). With 'OTRA VEZ', shout louder and more annoyed.\n")
+                "them of the note (RECORDATORIO). With 'OTRA VEZ', shout louder and more annoyed. "
+                "The alarm keeps ringing every 30 seconds until the user explicitly tells you to stop it; "
+                "if they talk about something else, answer but do NOT stop it.\n")
     dias_ayuda = ("days: optional repeat. '' = only once, 'diario' = every day, 'lun-vie' = weekdays, "
                   "'fin de semana', or a list like 'lun,mie,vie'.")
     tools = [
@@ -97,8 +99,9 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
              + al_sonar +
              "Use for: 'pon una alarma a las 6:30', 'coloca una alarma a las 7 pm', 'poneme una alarma a las 6:30', "
              "'programá una alarma para las 5', 'despertame a las 7', 'alarma de lunes a viernes a las 6'. "
-             "When the user asks for an alarm and says a time, ALWAYS call this tool (never just say it is set); "
-             "if no time was given, ask for it.\n"
+             "When the user asks for an alarm and says a time, ALWAYS call this tool right away (never just say "
+             "it is set). NEVER ask what the alarm is for, its name, which alarm or any other detail: label is "
+             "optional, leave it empty if not said. Only if no time was said at all, ask just the time.\n"
              "Parameters:\n- time: 'HH:MM' 24h, or '6:30 am' / '7 pm'.\n- " + dias_ayuda + "\n"
              "- label: optional short note (e.g. 'gimnasio')."),
             PropertyList([Property("time", PropertyType.STRING),
@@ -138,15 +141,18 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
         ),
         McpTool(
             "self.alarm.cancel_alarm",
-            ("Cancel a scheduled alarm, timer or reminder by id (from list_alarms), or 'all' to cancel everything.\n"
-             "Use for: 'quitá la alarma de las 6:30', 'borrá todas las alarmas'."),
-            PropertyList([Property("id", PropertyType.STRING)]),
+            ("Cancel a scheduled alarm, timer or reminder. id can be: a time ('6:30', '7 pm') to cancel the ones "
+             "at that time, a number id, 'all' to cancel everything, or empty to cancel the next one. "
+             "NEVER ask which alarm: if the user does not say, leave id empty.\n"
+             "Use for: 'quitá la alarma de las 6:30', 'cancelá la alarma', 'borrá todas las alarmas'."),
+            PropertyList([Property("id", PropertyType.STRING, default_value="")]),
             cancel_alarm,
         ),
         McpTool(
             "self.alarm.stop_ringing",
-            ("Stop the alarm that is ringing right now. Use when the user says 'apagá la alarma', 'ya, callate', "
-             "'ya me levanté', 'ok ya'."),
+            ("Stop the alarm that is ringing right now. Use ONLY when the user explicitly asks to stop it: "
+             "'para', 'detené la alarma', 'apagá la alarma', 'ya', 'basta', 'callate', 'ya me levanté'. "
+             "Talking about something else does not stop it."),
             PropertyList(),
             stop_ringing,
         ),

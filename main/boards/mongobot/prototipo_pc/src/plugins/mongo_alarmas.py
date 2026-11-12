@@ -11,8 +11,9 @@ que ante esos mensajes grite "¡RING RING RING!". El servidor rechaza los avisos
 largos (responde con una alerta), por eso van cortos.
 La cara cambia a alarma, temporizador o recordatorio.
 
-Si nadie la apaga, la alarma vuelve a gritar cada 30 s, hasta 3 veces. Se apaga
-pidiéndoselo ("apagá la alarma") o en cuanto le hablás.
+Si nadie la apaga, la alarma vuelve a gritar cada 30 s, sin límite: solo se detiene
+cuando le decís que pare ("para", "detené la alarma", "apagala", "ya", "basta"...).
+Hablarle de otra cosa no la apaga.
 
 Todo se guarda en mongo_alarmas.json (carpeta de datos de py-xiaozhi), así que
 sobrevive a cerrar y abrir el programa.
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
@@ -32,7 +34,7 @@ from src.logging import get_logger
 logger = get_logger()
 
 REPETIR_CADA = 30          # segundos entre gritos si nadie la apaga
-VECES = 3                  # cuántas veces grita como máximo
+VECES = None               # sin límite: grita hasta que le digás que pare
 MARCA = "[MONGO-AVISO]"    # así se reconocen los mensajes que manda el propio MongoBot
 
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
@@ -172,15 +174,29 @@ def listar() -> list[dict]:
 
 
 def cancelar(cual: str) -> list[dict]:
-    """'all' / 'todas' borra todo; si no, por número de id."""
+    """'all' / 'todas' borra todo; un id; una hora ('6:30', '7 pm') borra las de esa hora;
+    vacío borra la próxima que iba a sonar (sin preguntar cuál)."""
     global _items
     _asegurar()
-    c = str(cual).strip().lower().lstrip("#")
+    c = str(cual or "").strip().lower().lstrip("#")
     if c in ("all", "todas", "todo", "todos"):
         quitadas, _items = _items, []
-    else:
+    elif not c or c in ("next", "proxima", "próxima", "la proxima", "la próxima"):
+        quitadas = sorted(_items, key=lambda it: it["proxima"])[:1]
+        _items = [it for it in _items if it not in quitadas]
+    elif c.isdigit() and any(str(it["id"]) == c for it in _items):
         quitadas = [it for it in _items if str(it["id"]) == c]
         _items = [it for it in _items if str(it["id"]) != c]
+    else:
+        try:
+            h, m = leer_hora(c)
+        except Exception:
+            return []
+        def a_esa_hora(it):
+            t = datetime.fromtimestamp(it["proxima"])
+            return (t.hour, t.minute) == (h, m) or (it.get("hora") and list(it["hora"]) == [h, m])
+        quitadas = [it for it in _items if a_esa_hora(it)]
+        _items = [it for it in _items if not a_esa_hora(it)]
     _guardar()
     return quitadas
 
@@ -198,9 +214,18 @@ def detener() -> bool:
     return estaba
 
 
+PARAR = re.compile(
+    r"\b(para|par[aá]|parala|det[eé]n(la|te)?|deten[eé](la)?|detenela|apag[aá](la)?|apagala|desactiv[aá](la)?|"
+    r"ya|basta|silencio|c[aá]llate|callate|calla|stop|alto|suficiente|ya me levant[eé]|ok ya)\b", re.IGNORECASE)
+
+
+def pide_parar(texto: str) -> bool:
+    return bool(texto) and PARAR.search(texto) is not None
+
+
 def usuario_hablo(texto: str) -> None:
-    """Si el usuario le habla mientras grita, se calla (los avisos propios no cuentan)."""
-    if _sonando and texto and not es_aviso_propio(texto):
+    """Mientras grita, solo se calla si le decís que pare (hablarle de otra cosa no la apaga)."""
+    if _sonando and texto and not es_aviso_propio(texto) and pide_parar(texto):
         detener()
 
 
@@ -251,7 +276,7 @@ async def _revisar() -> None:
     ahora = time.time()
     # ¿le toca volver a gritar a la que está sonando?
     if _sonando and ahora - _sonando["ultimo"] >= REPETIR_CADA:
-        if _sonando["veces"] >= VECES:
+        if VECES is not None and _sonando["veces"] >= VECES:
             logger.info("[MongoAlarmas] nadie la apagó; se calla sola")
             _sonando = None
         else:

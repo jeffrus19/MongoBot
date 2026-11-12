@@ -198,7 +198,7 @@ async def main():
     await mongo_alarmas._gritar(it, 1); ver("suena un recordatorio dormido", pan.cara, "recordatorio")
     pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type":"stt","text":enviados[-1]})
     pres.show_device_state(S.SPEAKING); ver("lo grita despierto", pan.cara, "recordatorio")
-    pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type":"stt","text":"listo"})
+    pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type":"stt","text":"ya, apagala"})
     pres.show_device_state(S.SPEAKING); pres.show_device_state(S.IDLE)
     dormirse(); ver("después del recordatorio vuelve a dormir", pan.cara, "sleepy")
     hora[0] = datetime(2026,11,13,5,59); c.tic(); ver("5:59 sigue dormido", pan.cara, "sleepy")
@@ -365,6 +365,30 @@ async def main():
         r_ = await cara("videojuego", 2)
     ver("pedido por voz no tiene límite", r_.get("ok"), True)
     mongo_caras.soltar()
+    print("25. La alarma suena hasta que le digás que pare")
+    mongo_alarmas.cancelar("all"); enviados.clear()
+    pan, pres = nuevo()
+    it = {"tipo": "alarma", "texto": ""}
+    mongo_alarmas._sonando = {"item": it, "veces": 1, "ultimo": 0}
+    for _ in range(6):                                    # 6 vueltas de 30 s: sigue gritando
+        mongo_alarmas._sonando["ultimo"] = 0
+        await mongo_alarmas._revisar()
+    ver("después de 7 gritos sigue sonando", (mongo_alarmas._sonando is not None, mongo_alarmas._sonando["veces"]), (True, 7))
+    pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type": "stt", "text": "qué hora es"})
+    ver("le hablás de otra cosa: no se apaga", mongo_alarmas._sonando is not None, True)
+    for frase in ("detené la alarma", "ya", "basta mae", "apagala", "para"):
+        mongo_alarmas._sonando = {"item": it, "veces": 1, "ultimo": 0}
+        mongo_alarmas.usuario_hablo(frase)
+        ver(f"'{frase}' la apaga", mongo_alarmas._sonando, None)
+    print("26. Cancelar sin decir cuál")
+    from datetime import datetime as _d, timedelta as _td
+    mongo_alarmas.cancelar("all")
+    a1 = mongo_alarmas.programar("alarma", _d.now() + _td(hours=2), hora=(1, 1))
+    a2 = mongo_alarmas.programar("alarma", _d.now() + _td(hours=1), hora=(2, 2))
+    ver("'cancelá la alarma' quita la próxima", [x["id"] for x in mongo_alarmas.cancelar("")], [a2["id"]])
+    a3 = mongo_alarmas.programar("alarma", _d(2030, 1, 1, 6, 30), hora=(6, 30))
+    ver("'quitá la de las 6:30' quita esa", [x["id"] for x in mongo_alarmas.cancelar("6:30")], [a3["id"]])
+    mongo_alarmas.cancelar("all"); mongo_alarmas._sonando = None
     print(f"\n{ok_total} bien, {fallas} fallas")
 
 asyncio.run(main())
