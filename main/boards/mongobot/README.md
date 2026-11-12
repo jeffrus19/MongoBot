@@ -10,7 +10,12 @@ Lo que cambia:
   emoción (`happy.gif`, `sad.gif`, ...). Se empaquetan en la partición de assets
   al compilar. En `emojis_extra/` hay tres más (excited, smug, terrified) que el
   servidor no manda, pensadas para los comportamientos por inactividad.
-- Animaciones de inactividad en `inactividad/` (por ahora, tocar guitarra).
+- Animaciones de inactividad en `inactividad/`: tocar guitarra (con sonido),
+  hacer ejercicio y jugar videojuegos, en el estilo minimalista.
+- Estilo minimalista en `fuentes_minimal/`: la cara nueva (aro blanco, cara
+  negra que gira sobre una esfera, colores por emoción) con las 24 emociones y
+  el modo conversación. Pensado para dibujarse en vivo con LVGL; por ahora las
+  caras del firmware siguen siendo los GIF de `emojis/`.
 - Tema oscuro, para que la interfaz combine con el fondo negro de las caras.
 - Palabras de activación propias con MultiNet: "mongo bot" y "monguito"
   (definidas en `config.json`).
