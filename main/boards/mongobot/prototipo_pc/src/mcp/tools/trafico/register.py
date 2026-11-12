@@ -16,16 +16,17 @@ def register_trafico_tools(add_tool: Callable[[McpTool], None]) -> None:
     tool = McpTool(
         "self.traffic.check",
         (
-            "Check LIVE traffic and driving time between two places (Google Maps, real-time traffic). "
+            "Driving route and estimated travel time between two places (OpenStreetMap). It has NO live "
+            "traffic: always say the time is an estimate without traffic and that at rush hour it can take "
+            "longer. "
             "Use it for '¿cómo está el tráfico a Escazú?', '¿cuánto duro de Sabanilla a Heredia?', "
             "'¿hay presa para ir al aeropuerto?'. Any destination works: a town, an address, a mall, "
             "a business. Add ', Costa Rica' if the place is ambiguous.\n"
             f"Parameters:\n- destination: where the user wants to go (required).\n"
             f"- origin: where they leave from; leave empty for home ({ORIGEN_POR_DEFECTO}).\n"
-            "Returns the best route (via, minutes with and without traffic, delay, km and a traffic level: "
-            "fluido, moderado, pesado or muy pesado) and the alternatives. Answer briefly in Spanish: the "
-            "time with traffic, how bad it is, the road it goes by and, if an alternative is not much slower, "
-            "mention it. If ok is false, say what failed."
+            "Returns the best route (via, minutes without traffic, km) and the alternatives. Answer briefly "
+            "in Spanish: the estimated time, the road it goes by and, if an alternative is close, mention it. "
+            "If ok is false, say what failed."
         ),
         PropertyList([
             Property("destination", PropertyType.STRING),
