@@ -552,20 +552,25 @@ def a_tacto_despertar(L, t):
 
 # ---------------------------------------------------------------- 11. leyendo
 
+TAPA = (205, 40, 45)        # tapas rojas del libro
+HOJA = (238, 238, 232)      # páginas
+HOJA_PASA = (212, 212, 206)
+
+
 def libro(L, x, y, hoja_u):
-    """Libro abierto: dos páginas en V con renglones; hoja_u (0..1) pasa una página."""
+    """Libro abierto con tapas rojas y páginas lisas; hoja_u (0..1) pasa una página."""
     for lado in (-1, 1):
-        pts = [(x, y + 4), (x + lado * 54, y - 6), (x + lado * 54, y + 46), (x, y + 54)]
-        L.poligono(pts, ARO)
-        inner = [(x + lado * 3, y + 9), (x + lado * 49, y), (x + lado * 49, y + 41), (x + lado * 3, y + 48)]
-        L.poligono(inner, NEGRO)
-        for j in range(4):
-            yy = y + 12 + j * 9
-            L.linea([(x + lado * 10, yy + 1 - j * 0), (x + lado * 42, yy - 4)], 1.6, (120, 120, 120))
+        tapa = [(x, y), (x + lado * 59, y - 10), (x + lado * 59, y + 50), (x, y + 59)]
+        L.poligono(tapa, TAPA)
+        hoja = [(x, y + 4), (x + lado * 53, y - 5), (x + lado * 53, y + 45), (x, y + 54)]
+        L.poligono(hoja, HOJA)
+    L.linea([(x, y + 4), (x, y + 54)], 2.0, (150, 150, 145))   # lomo
     if 0 < hoja_u < 1:
         k = math.cos(math.pi * hoja_u)                          # 1 derecha -> -1 izquierda
-        pts = [(x, y + 4), (x + 54 * k, y - 6 - 8 * (1 - abs(k))), (x + 54 * k, y + 46 - 8 * (1 - abs(k))), (x, y + 54)]
-        L.poligono(pts, (225, 225, 225))
+        alto = 8 * (1 - abs(k))
+        pts = [(x, y + 4), (x + 53 * k, y - 5 - alto), (x + 53 * k, y + 45 - alto), (x, y + 54)]
+        L.poligono(pts, HOJA_PASA)
+        L.linea(pts[1:3], 1.6, (165, 165, 160))
 
 
 def a_leyendo(L, t):
