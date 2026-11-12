@@ -73,17 +73,50 @@ def _ubicar(ciudad: str) -> dict:
     raise LookupError(f"no encontré la ciudad '{nombre}'")
 
 
+PROB_LLUVIA = 50        # % de probabilidad a partir del cual cuenta como "va a llover"
+HORAS_LLUVIA = 3        # horas hacia adelante que se miran para "va a llover"
+
+
 def _clima(ciudad: str, dias: int = 0) -> dict:
     lugar = _ubicar(ciudad)
     params = {
         "latitude": lugar["lat"], "longitude": lugar["lon"], "timezone": "auto",
         "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation",
+        "hourly": "precipitation_probability", "forecast_days": 2,
     }
     if dias:
         params["daily"] = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
-        params["forecast_days"] = max(1, min(7, dias))
+        params["forecast_days"] = max(2, min(7, dias))
     datos = _get_json(_CLIMA, params)
     return {"lugar": lugar, "datos": datos}
+
+
+def prob_lluvia_pronto(datos: dict) -> int | None:
+    """Máxima probabilidad de lluvia en las próximas HORAS_LLUVIA horas."""
+    h = datos.get("hourly") or {}
+    horas, probs = h.get("time") or [], h.get("precipitation_probability") or []
+    ahora = str((datos.get("current") or {}).get("time", ""))[:13]        # "2026-11-12T12"
+    try:
+        i = next(k for k, t in enumerate(horas) if str(t)[:13] >= ahora)
+    except StopIteration:
+        return None
+    ventana = [p for p in probs[i:i + HORAS_LLUVIA + 1] if p is not None]
+    return max(ventana) if ventana else None
+
+
+def cara_actual(datos: dict) -> str:
+    """Soleado -> clima_sol, nublado -> clima_nube; lloviendo o por llover -> clima_lluvia."""
+    cara = describir_codigo((datos.get("current") or {}).get("weather_code", 3))[1]
+    p = prob_lluvia_pronto(datos)
+    return "clima_lluvia" if p is not None and p >= PROB_LLUVIA else cara
+
+
+def cara_dia(datos: dict, i: int) -> str:
+    """Cara de un día del pronóstico: lluvia si llueve o la probabilidad es alta."""
+    d = datos.get("daily") or {}
+    cara = describir_codigo(d["weather_code"][i])[1]
+    prob = (d.get("precipitation_probability_max") or [None] * (i + 1))[i]
+    return "clima_lluvia" if prob is not None and prob >= PROB_LLUVIA else cara
 
 
 def _mostrar_cara(cara: str) -> None:
@@ -125,11 +158,11 @@ async def mostrar_clima_de(texto: str) -> bool:
         except Exception as e:                                   # noqa: BLE001
             logger.debug(f"[WeatherTool] clima automático de {ciudad}: {e}")
             continue
-        if manana and r["datos"].get("daily", {}).get("weather_code"):
-            codigo = r["datos"]["daily"]["weather_code"][-1]
+        if manana and len(r["datos"].get("daily", {}).get("weather_code") or []) > 1:
+            cara = cara_dia(r["datos"], 1)
         else:
-            codigo = r["datos"].get("current", {}).get("weather_code", 3)
-        _mostrar_cara(describir_codigo(codigo)[1])
+            cara = cara_actual(r["datos"])
+        _mostrar_cara(cara)
         logger.info(f"[WeatherTool] pregunta del clima: animación de {ciudad}{' (mañana)' if manana else ''}")
         return True
     return False
@@ -144,13 +177,15 @@ async def get_weather_payload(args: dict[str, Any]) -> str:
         logger.warning(f"[WeatherTool] no pude obtener el clima: {e}")
         return json.dumps({"ok": False, "error": f"could not get the weather: {e}"}, ensure_ascii=False)
     c = r["datos"].get("current", {})
-    desc, cara = describir_codigo(c.get("weather_code", 3))
-    _mostrar_cara(cara)
+    desc = describir_codigo(c.get("weather_code", 3))[0]
+    _mostrar_cara(cara_actual(r["datos"]))
+    prob = prob_lluvia_pronto(r["datos"])
     return json.dumps({
         "ok": True, "city": r["lugar"]["nombre"], "country": r["lugar"]["pais"],
         "condition": desc, "temperature_c": c.get("temperature_2m"), "feels_like_c": c.get("apparent_temperature"),
         "humidity_pct": c.get("relative_humidity_2m"), "wind_kmh": c.get("wind_speed_10m"),
-        "precipitation_mm": c.get("precipitation"), "time": c.get("time"), "source": "Open-Meteo",
+        "precipitation_mm": c.get("precipitation"), "time": c.get("time"),
+        "rain_probability_next_hours_pct": prob, "source": "Open-Meteo",
     }, ensure_ascii=False)
 
 
@@ -171,6 +206,6 @@ async def get_forecast_payload(args: dict[str, Any]) -> str:
                            "min_c": d["temperature_2m_min"][i],
                            "rain_probability_pct": (d.get("precipitation_probability_max") or [None] * 9)[i]})
     if dias_lista:
-        _mostrar_cara(describir_codigo(d["weather_code"][0])[1])
+        _mostrar_cara(cara_dia(r["datos"], 0))
     return json.dumps({"ok": True, "city": r["lugar"]["nombre"], "country": r["lugar"]["pais"],
                        "forecast": dias_lista, "source": "Open-Meteo"}, ensure_ascii=False)

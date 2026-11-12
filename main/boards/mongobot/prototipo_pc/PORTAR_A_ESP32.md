@@ -135,7 +135,9 @@ respetar estas reglas, porque cada una corrigió un error real:
    MongoBot busca él mismo el clima real y pone sol, nube o lluvia, aunque la IA
    conteste sin usar la herramienta. Toma la ciudad de "en <ciudad>" (si no existe, San
    José) y "mañana" usa el pronóstico del día siguiente. Regex `PREGUNTA_CLIMA` en
-   weather/service.py.
+   weather/service.py. Qué cara: soleado -> clima_sol, nublado o neblina -> clima_nube,
+   lloviendo o con 50 % o más de probabilidad de lluvia en las próximas 3 horas (o en
+   el día, si es pronóstico) -> clima_lluvia.
 
 ### Matriz de disparadores (69 animaciones)
 
