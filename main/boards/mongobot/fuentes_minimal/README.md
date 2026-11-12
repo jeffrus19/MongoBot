@@ -21,6 +21,7 @@ py-xiaozhi.
 | `generar_videojuego_min.py` | Jugando videojuegos con un monstruito de 8 bits propio. |
 | `generar_extras_min.py` | Estados del sistema y funciones: pensando, despertar, conectando, sin conexión, saludo, alarma, temporizador, clima (sol, nube, lluvia), pomodoro (trabajo y descanso), presumido, llamando la atención, reacción al tacto (cosquillas, molesto, despertar) y leyendo. |
 | `generar_extras2_min.py` | Emociones de personalidad (rodar los ojos, escéptico, ofendido, furioso, eureka, pícaro, ignorando, orgulloso, curioso, aburrido, decepcionado), bostezo, avisos (recordatorio y mensaje) y estados de la placa (configurar WiFi, actualizando y volumen). |
+| `generar_temporada_min.py` | Temporada: año nuevo (fuegos artificiales) y Navidad (cuernos de reno, nariz roja y nieve). |
 | `audio_guitarra.py` | Módulo con el sonido de la guitarra y los tiempos de cada nota. |
 
 Uso (desde esta carpeta):
@@ -32,6 +33,7 @@ python generar_ejercicio_min.py salida
 python generar_videojuego_min.py salida
 python generar_extras_min.py salida
 python generar_extras2_min.py salida
+python generar_temporada_min.py salida
 ```
 
 Necesitan Pillow, numpy, scipy y ffmpeg en el PATH.
