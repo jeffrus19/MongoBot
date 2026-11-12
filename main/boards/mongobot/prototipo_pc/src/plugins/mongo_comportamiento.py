@@ -30,7 +30,8 @@ Inactividad (sin que le hablés)
 - a los 60 s            -> aburrido, y luego alterna las actividades que tocan a esa hora
                            (HORARIOS), con ratos de "mirando" entre una y otra; cada tanto
                            toca el vidrio para llamarte (llamando) y te dice algo:
-                             ejercicio y leyendo   todos los días de 8:00 a 20:00
+                             ejercicio             mar, mié y jue de 9:00 a 10:00; sáb y dom de 8:00 a 11:00
+                             leyendo               todos los días de 8:00 a 20:00
                              guitarra              sábado y domingo de 10:00 a 17:00, sonido al 25 %
                              videojuego            lunes a viernes de 11:00 a 16:00, sonido al 25 %
                            Fuera de horario (de noche) solo mira alrededor. Pedidas con
@@ -78,13 +79,14 @@ REVISAR_RED_CADA = 15      # segundos entre pruebas mientras está sin conexión
 NOCHE = (22, 6)            # duerme de 22:00 a 6:00
 DORMIR_NOCHE = 60          # de noche, segundos sin hablarle antes de dormirse
 
-# actividad de inactividad -> (días, hora de inicio, hora de fin); lunes = 0
+# actividad de inactividad -> lista de (días, hora de inicio, hora de fin); lunes = 0
 TODOS = (0, 1, 2, 3, 4, 5, 6)
 HORARIOS = {
-    "ejercicio": (TODOS, 8, 20),
-    "leyendo": (TODOS, 8, 20),
-    "guitarra": ((5, 6), 10, 17),            # sábado y domingo
-    "videojuego": ((0, 1, 2, 3, 4), 11, 16),  # lunes a viernes
+    "ejercicio": [((1, 2, 3), 9, 10),        # martes, miércoles y jueves
+                  ((5, 6), 8, 11)],          # sábado y domingo
+    "leyendo": [(TODOS, 8, 20)],
+    "guitarra": [((5, 6), 10, 17)],          # sábado y domingo
+    "videojuego": [((0, 1, 2, 3, 4), 11, 16)],  # lunes a viernes
 }
 ACTIVIDADES = list(HORARIOS)
 CON_SONIDO = ("guitarra", "videojuego")   # actividades con loop de audio (al 25 %)
@@ -174,9 +176,9 @@ class Comportamiento:
         return [a for a in ACTIVIDADES if self._en_horario(a)]
 
     def _en_horario(self, actividad: str) -> bool:
-        dias, desde, hasta = HORARIOS.get(actividad, ((), 0, 0))
         m = self._momento()
-        return m.weekday() in dias and desde <= m.hour < hasta
+        return any(m.weekday() in dias and desde <= m.hour < hasta
+                   for dias, desde, hasta in HORARIOS.get(actividad, []))
 
     def es_de_noche(self) -> bool:
         h = self._momento().hour

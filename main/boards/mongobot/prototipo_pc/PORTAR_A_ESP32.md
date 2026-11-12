@@ -58,7 +58,8 @@ respetar estas reglas, porque cada una corrigió un error real:
    recortan a 2-120 en vez de rechazar la llamada.
 8. **Animaciones de una sola vez:** despertar y tacto_despertar no se repiten.
 9. **Horarios de las actividades de inactividad** (hora de Costa Rica, por SNTP):
-   - ejercicio y leyendo: todos los días de 8:00 a 20:00, alternados;
+   - ejercicio: martes, miércoles y jueves de 9:00 a 10:00; sábado y domingo de 8:00 a 11:00;
+   - leyendo: todos los días de 8:00 a 20:00;
    - guitarra: sábado y domingo de 10:00 a 17:00, sonido al 25 %;
    - videojuego: lunes a viernes de 11:00 a 16:00, sonido 8 bits al 25 %.
    Nunca repite la misma actividad dos veces seguidas si hay otra disponible. Fuera

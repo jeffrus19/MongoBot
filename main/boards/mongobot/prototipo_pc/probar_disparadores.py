@@ -99,17 +99,20 @@ async def main():
     for s in range(720): reloj[0]=float(s); c.tic()
     for a, desc in [("saludo","al arrancar"),("aburrido","1 min sin hablarle"),("mirando","entre actividades"),
                     ("llamando","cada 3 actividades"),("bostezo","a los 10 min"),("sleepy","después del bostezo"),
-                    ("ejercicio","inactividad 8:00-20:00"),("videojuego","inactividad L-V 11:00-16:00"),
                     ("leyendo","inactividad 8:00-20:00")]:
         anotar(a, desc, a in vistas, f"min {vistas[a]/60:.1f}" if a in vistas else "no salió")
     # horarios: qué actividades salen en cada momento (en ~10 min de inactividad)
     E, L, G, V = "ejercicio", "leyendo", "guitarra", "videojuego"
-    for cuando, esperado in ((datetime(2026,11,12,12,0), {E,L,V}),   # jueves mediodía
-                             (datetime(2026,11,12,10,30), {E,L}),    # jueves antes del videojuego
-                             (datetime(2026,11,12,16,0), {E,L}),     # jueves después del videojuego
-                             (datetime(2026,11,14,11,0), {E,L,G}),   # sábado con guitarra
-                             (datetime(2026,11,15,9,0), {E,L}),      # domingo temprano
-                             (datetime(2026,11,15,17,0), {E,L}),     # domingo ya sin guitarra
+    for cuando, esperado in ((datetime(2026,11,12,12,0), {L,V}),     # jueves mediodía
+                             (datetime(2026,11,12,9,30), {E,L}),     # jueves, hora de ejercicio
+                             (datetime(2026,11,12,10,30), {L}),      # jueves antes del videojuego
+                             (datetime(2026,11,12,16,0), {L}),       # jueves después del videojuego
+                             (datetime(2026,11,16,9,30), {L}),       # lunes: no hay ejercicio
+                             (datetime(2026,11,20,9,30), {L}),       # viernes: no hay ejercicio
+                             (datetime(2026,11,14,9,0), {E,L}),      # sábado temprano
+                             (datetime(2026,11,14,11,0), {L,G}),     # sábado: termina el ejercicio
+                             (datetime(2026,11,15,10,30), {E,L,G}),  # domingo: ejercicio y guitarra
+                             (datetime(2026,11,15,17,0), {L}),       # domingo ya sin guitarra
                              (datetime(2026,11,16,7,59), set()),     # lunes muy temprano
                              (datetime(2026,11,16,20,0), set())):    # lunes de noche
         vistas3=set(); r3=[0.0]
