@@ -72,6 +72,33 @@ def _cargar() -> None:
     except Exception as e:                                       # noqa: BLE001
         logger.error(f"[MongoAlarmas] no pude leer las alarmas: {e}")
         _items = []
+    _vencidas_al_abrir()
+
+
+ATRASO_MAX = 10 * 60      # al abrir: las que se pasaron hace menos de 10 min suenan ya
+
+
+def _vencidas_al_abrir() -> None:
+    """Si MongoBot estuvo cerrado cuando tocaba una alarma: si fue hace poco, suena al abrir;
+    si fue hace más de ATRASO_MAX, las de una vez se descartan y las que se repiten pasan a
+    su próxima vez (no despierta a gritos por una alarma de ayer)."""
+    global _items
+    ahora = time.time()
+    quedan, cambio = [], False
+    for it in _items:
+        if it["proxima"] >= ahora - ATRASO_MAX:
+            quedan.append(it)
+        elif it.get("dias") and it.get("hora"):
+            h, m = it["hora"]
+            it["proxima"] = proxima(h, m, it["dias"], datetime.fromtimestamp(ahora)).timestamp()
+            quedan.append(it)
+            cambio = True
+        else:
+            logger.info(f"[MongoAlarmas] se pasó mientras estaba cerrado, la descarto: {describir(it)}")
+            cambio = True
+    _items = quedan
+    if cambio:
+        _guardar()
 
 
 def _guardar() -> None:
