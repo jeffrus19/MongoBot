@@ -101,6 +101,13 @@ respetar estas reglas, porque cada una corrigió un error real:
    sea de noche, y la respuesta se muestra al terminar. Regex `POMPI` en
    mongo_comportamiento.
 
+15. **Clima con su animación:** las herramientas se llaman `self.weather.get_current` y
+   `self.weather.get_forecast`. Antes se llamaban `get_weather`, igual que la del
+   servidor de XiaoZhi, y el servidor respondía con una alerta "Duplicate tool names"
+   y usaba la suya (sin animación). La cara del clima (sol, nube o lluvia según el
+   código WMO) acompaña toda la respuesta y se suelta cuando termina de hablar
+   (`mostrar(..., hasta_respuesta=True)`).
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

@@ -257,6 +257,31 @@ async def main():
     pres.show_device_state(S.SPEAKING); pres.show_protocol_message({"type": "llm", "emotion": "happy"})
     ver("mientras contesta sigue el saludo", pan.cara, "saludo")
     mongo_caras.soltar(); ver("al terminar el saludo muestra la respuesta", pan.cara, "happy")
+    print("19. Clima: la cara acompaña toda la respuesta")
+    from src.mcp.tools.weather import service as w
+    from src.mcp.tools.weather.register import register_weather_tools
+    tw = {}; register_weather_tools(lambda t: tw.__setitem__(t.name, t))
+    for nombre_tool, codigo, cara_esperada in (("self.weather.get_current", 61, "clima_lluvia"),
+                                               ("self.weather.get_forecast", 1, "clima_sol")):
+        w._get_json = lambda url, params, timeout=8.0, c=codigo: (
+            {"results": [{"name": "San José", "country": "Costa Rica", "country_code": "CR", "latitude": 9.9, "longitude": -84.1}]}
+            if "geocoding" in url else {"current": {"weather_code": c, "temperature_2m": 22},
+                                        "daily": {"time": ["2026-11-12"], "weather_code": [c], "temperature_2m_max": [26],
+                                                  "temperature_2m_min": [17], "precipitation_probability_max": [40]}})
+        pan, pres = nuevo()
+        pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type": "stt", "text": "cómo está el clima"})
+        t = tw[nombre_tool]; await t.callback(t.properties.parse_arguments({}))
+        pres.show_device_state(S.SPEAKING); pres.show_protocol_message({"type": "llm", "emotion": "happy"})
+        ver(f"{nombre_tool}: mientras contesta", pan.cara, cara_esperada)
+        await asyncio.sleep(0.2); ver("sigue mientras habla", pan.cara, cara_esperada)
+        pres.show_device_state(S.IDLE); ver("al terminar de contestar se suelta", (pan.cara, mongo_caras.bloqueada()), ("neutral", False))
+    pan, pres = nuevo()
+    pres.show_device_state(S.LISTENING); await tw["self.weather.get_current"].callback({"city": "San José"})
+    pres.show_protocol_message({"type": "tts", "state": "start"}); pres.show_protocol_message({"type": "tts", "state": "stop"})
+    ver("tiempo real: al terminar la voz vuelve a escuchar", pan.cara, "conversa_escucha")
+    pan, pres = nuevo(); pres.show_device_state(S.LISTENING); await cara("guitarra", 20); pres.show_device_state(S.SPEAKING)
+    pres.show_device_state(S.LISTENING); ver("una cara normal (guitarra) no se suelta al terminar", pan.cara, "guitarra")
+    mongo_caras.soltar()
     print(f"\n{ok_total} bien, {fallas} fallas")
 
 asyncio.run(main())

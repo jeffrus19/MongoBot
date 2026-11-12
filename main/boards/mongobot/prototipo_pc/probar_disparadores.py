@@ -162,7 +162,7 @@ async def main():
     for codigo, cara in ((0,"clima_sol"),(3,"clima_nube"),(63,"clima_lluvia")):
         w._get_json = lambda url, params, timeout=8.0, c=codigo: ({"results":[{"name":"San José","country":"Costa Rica","country_code":"CR","latitude":9.9,"longitude":-84.1}]} if "geocoding" in url else {"current":{"weather_code":c,"temperature_2m":24}})
         pan, pres = nuevo()
-        tool=tw["get_weather"]; await tool.callback(tool.properties.parse_arguments({}))
+        tool=tw["self.weather.get_current"]; await tool.callback(tool.properties.parse_arguments({}))
         anotar(cara, f"pregunta del clima (código {codigo})", pan.cara == cara, pan.cara)
     mongo_caras.soltar()
 

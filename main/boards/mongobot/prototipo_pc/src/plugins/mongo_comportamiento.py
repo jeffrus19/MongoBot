@@ -164,6 +164,16 @@ class Comportamiento:
         except Exception:                                        # noqa: BLE001
             pass
 
+    def _fin_de_respuesta(self) -> None:
+        """Terminó de contestar: se suelta la cara que solo acompañaba la respuesta (clima)."""
+        try:
+            from src.plugins import mongo_caras
+
+            if mongo_caras.dura_hasta_respuesta():
+                mongo_caras.soltar()
+        except Exception:                                        # noqa: BLE001
+            pass
+
     def _soltar_cara_pedida(self) -> None:
         """Suelta la cara de show_face, salvo una alarma sonando (se apaga al contestarle)."""
         from src.plugins import mongo_alarmas, mongo_caras
@@ -238,6 +248,7 @@ class Comportamiento:
         anterior, self.estado = self.estado, estado
         if anterior == "speaking" and estado != "speaking":
             self._fin_respuesta = self._reloj()
+            self._fin_de_respuesta()
         if estado == "listening":
             if anterior == "speaking" or (anterior == "idle"
                                           and self._reloj() - self._fin_respuesta <= CONVERSA_VENTANA):
@@ -305,6 +316,7 @@ class Comportamiento:
         """Inicio/fin de la voz. En tiempo real nunca pasa a 'hablando': al terminar
         de hablar vuelve a la cara de escucha."""
         if (estado or "").lower() == "stop" and self.estado == "listening":
+            self._fin_de_respuesta()
             self._emocion_turno = None
             self._en_conversacion = True
             self._fin_respuesta = self._reloj()

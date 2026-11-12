@@ -62,7 +62,7 @@ index 537b0a3..8999e26 100644
          except Exception as e:
              logger.error(f"Windows音量控制初始化失败: {e}", exc_info=True)
 diff --git a/src/mcp/tools/weather/register.py b/src/mcp/tools/weather/register.py
-index 556cb6e..869e09d 100644
+index 556cb6e..2be8e25 100644
 --- a/src/mcp/tools/weather/register.py
 +++ b/src/mcp/tools/weather/register.py
 @@ -1,4 +1,4 @@
@@ -80,13 +80,18 @@ index 556cb6e..869e09d 100644
  
  logger = get_logger()
  
-@@ -19,23 +19,26 @@ def register_weather_tools(add_tool: Callable[[McpTool], None]) -> None:
+@@ -17,25 +17,31 @@ def register_weather_tools(add_tool: Callable[[McpTool], None]) -> None:
+ 
+     tools: list[McpTool] = [
          McpTool(
-             "get_weather",
+-            "get_weather",
++            "self.weather.get_current",
              (
 -                "获取指定城市的当前天气。"
 -                "参数: city - 城市名称（如：北京、上海、广州）"
-+                "Get the real current weather of a city (Open-Meteo). Use for '¿cómo está el clima?', "
++                "ALWAYS use this tool (not any other weather tool) for weather questions: it is the only one "
++                "that shows MongoBot's sun, cloud or rain animation on the screen. "
++                "Gets the real current weather of a city (Open-Meteo). Use for '¿cómo está el clima?', "
 +                "'¿va a llover?', '¿qué temperatura hace?'. If the user names no city, leave the default "
 +                f"({CIUDAD_POR_DEFECTO}). Shows a sun, cloud or rain face on MongoBot's screen.\n"
 +                "Parameter: city - city name, optionally with country (e.g. 'Heredia', 'Madrid, España')."
@@ -98,10 +103,12 @@ index 556cb6e..869e09d 100644
              get_weather_payload,
          ),
          McpTool(
-             "get_forecast",
+-            "get_forecast",
++            "self.weather.get_forecast",
              (
 -                "获取指定城市的天气预报。"
 -                "参数: city - 城市名称, days - 预报天数(1-7天)"
++                "ALWAYS use this tool (not any other weather tool) for forecasts; it shows the weather animation. "
 +                "Get the real weather forecast of a city for 1-7 days (Open-Meteo), with rain probability. "
 +                f"Default city: {CIUDAD_POR_DEFECTO}.\n"
 +                "Parameters: city - city name, days - number of days (1-7)."
@@ -113,14 +120,14 @@ index 556cb6e..869e09d 100644
                      Property(
                          "days",
                          PropertyType.INTEGER,
-@@ -51,4 +54,4 @@ def register_weather_tools(add_tool: Callable[[McpTool], None]) -> None:
+@@ -51,4 +57,4 @@ def register_weather_tools(add_tool: Callable[[McpTool], None]) -> None:
  
      for tool in tools:
          add_tool(tool)
 -    logger.info("已注册 %d 个天气 MCP 工具（register_weather_tools, mock）", len(tools))
 +    logger.info("Registradas %d herramientas MCP de clima (Open-Meteo)", len(tools))
 diff --git a/src/mcp/tools/weather/service.py b/src/mcp/tools/weather/service.py
-index c708f93..1432762 100644
+index c708f93..b869b57 100644
 --- a/src/mcp/tools/weather/service.py
 +++ b/src/mcp/tools/weather/service.py
 @@ -1,37 +1,135 @@
@@ -240,7 +247,7 @@ index c708f93..1432762 100644
 +    try:
 +        from src.plugins import mongo_caras
 +
-+        mongo_caras.mostrar(cara, 10)
++        mongo_caras.mostrar(cara, 60, hasta_respuesta=True)   # acompaña toda la respuesta
 +    except Exception as e:                                       # noqa: BLE001
 +        logger.debug(f"[WeatherTool] sin cara: {e}")
 +

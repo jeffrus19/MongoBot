@@ -89,7 +89,7 @@ def _mostrar_cara(cara: str) -> None:
     try:
         from src.plugins import mongo_caras
 
-        mongo_caras.mostrar(cara, 10)
+        mongo_caras.mostrar(cara, 60, hasta_respuesta=True)   # acompaña toda la respuesta
     except Exception as e:                                       # noqa: BLE001
         logger.debug(f"[WeatherTool] sin cara: {e}")
 

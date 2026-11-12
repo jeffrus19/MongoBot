@@ -26,6 +26,7 @@ _bloqueada_hasta = 0.0
 _pendiente: str | None = None
 _temporizador: asyncio.TimerHandle | None = None
 _sonando = False
+_hasta_respuesta = False      # la cara se suelta cuando MongoBot termina de contestar
 CON_SONIDO = ("guitarra", "videojuego")     # caras que llevan un loop de audio
 GOLPES = {"llamando": True, "saludo": False}  # MongoBot toca la pantalla: nombre -> se repite
 
@@ -34,6 +35,10 @@ def conectar(fn: Callable[[str], None] | None) -> None:
     """La pantalla registra cómo poner una cara (o None al cerrarse)."""
     global _mostrar_en_pantalla
     _mostrar_en_pantalla = fn
+
+
+def dura_hasta_respuesta() -> bool:
+    return bloqueada() and _hasta_respuesta
 
 
 def bloqueada() -> bool:
@@ -88,8 +93,9 @@ def _sonido(nombre: str, encender: bool, suave: bool = False) -> None:
 
 
 def _liberar() -> None:
-    global _bloqueada_hasta, _temporizador, _pendiente
+    global _bloqueada_hasta, _temporizador, _pendiente, _hasta_respuesta
     _bloqueada_hasta = 0.0
+    _hasta_respuesta = False
     _temporizador = None
     _sonido("", False)
     siguiente = _pendiente
@@ -118,14 +124,17 @@ def soltar() -> None:
         _liberar()
 
 
-def mostrar(nombre: str, segundos: float) -> bool:
-    """Pone la cara ``nombre`` durante ``segundos``. Devuelve False si no hay pantalla."""
-    global _bloqueada_hasta, _temporizador
+def mostrar(nombre: str, segundos: float, hasta_respuesta: bool = False) -> bool:
+    """Pone la cara ``nombre`` durante ``segundos``. Devuelve False si no hay pantalla.
+    ``hasta_respuesta``: además se suelta en cuanto MongoBot termina de contestar
+    (p. ej. el clima: la cara acompaña la respuesta, ni más ni menos)."""
+    global _bloqueada_hasta, _temporizador, _hasta_respuesta
     if _mostrar_en_pantalla is None:
         return False
     _sonido("", False)
     _mostrar_en_pantalla(nombre)
     _bloqueada_hasta = time.monotonic() + segundos
+    _hasta_respuesta = hasta_respuesta
     _sonido(nombre, True)
     try:
         loop = asyncio.get_running_loop()
