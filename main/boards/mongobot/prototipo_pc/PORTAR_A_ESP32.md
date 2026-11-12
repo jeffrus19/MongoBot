@@ -12,7 +12,7 @@ de herramientas MCP**, así el texto de personalidad en xiaozhi.me no cambia.
 | `src/plugins/mongo_caras.py` | Puente herramienta → pantalla, con "candado" para que la cara pedida no la tape otra. |
 | `src/mcp/tools/cara/register.py` | Herramientas `self.screen.show_face` y `self.screen.list_faces`. |
 | `src/plugins/mongo_alarmas.py` | Alarmas, temporizadores y recordatorios: guarda, revisa cada segundo y, al cumplirse, hace que MongoBot grite "¡RING RING RING!" con su voz. |
-| `src/plugins/mongo_comportamiento.py` | Capa de comportamiento: elige la cara según la conversación (escuchando → cúpula, pensando, hablando → emoción o globitos, enojo repetido → furioso, despertar), el sistema (saludo, sin conexión) y la inactividad (aburrido, ejercicio, videojuego y leyendo alternados, guitarra solo fines de semana de 10 a 17, llamando, bostezo, dormir, temporada). Es lógica pura con reloj inyectable: se pasa casi tal cual a C++. |
+| `src/plugins/mongo_comportamiento.py` | Capa de comportamiento: elige la cara según la conversación (escuchando → cúpula, pensando, hablando → emoción o globitos, enojo repetido → furioso, despertar), el sistema (saludo, sin conexión) y la inactividad (aburrido, ejercicio, leyendo, guitarra y videojuego según su horario, llamando, bostezo, dormir, temporada). Es lógica pura con reloj inyectable: se pasa casi tal cual a C++. |
 | `src/mcp/tools/alarmas/register.py` | Herramientas `self.alarm.set_alarm`, `set_timer`, `set_reminder`, `list_alarms`, `cancel_alarm`, `stop_ringing`. |
 | `src/mcp/tools/weather/service.py` | Clima real con Open-Meteo (sin clave). Por defecto San José, Costa Rica; muestra clima_sol, clima_nube o clima_lluvia 10 s según el código WMO. |
 | Cambios en `ui_presenter.py`, `ui.py`, `mcp_server.py`, `volume/register.py`, `weather/register.py` | Conectan lo anterior (marcados con el comentario `# MongoBot`). |
@@ -57,22 +57,22 @@ respetar estas reglas, porque cada una corrigió un error real:
    ("feliz", "enojado", "año nuevo") se traducen al nombre exacto; los segundos se
    recortan a 2-120 en vez de rechazar la llamada.
 8. **Animaciones de una sola vez:** despertar y tacto_despertar no se repiten.
-9. **Actividades de inactividad:** alterna ejercicio, videojuego y leyendo. La guitarra solo
-   entra sábados y domingos de 10:00 a 17:00 (hora de Costa Rica, por SNTP) y a
-   volumen moderado (en la PC, `guitarra_suave.wav` al 30 %; en la placa, bajar la
-   ganancia del códec mientras suene). Pedida por voz (show_face) toca siempre y a
-   volumen normal.
-10. **Sonido del videojuego:** loop chiptune propio (`inactividad/videojuego.ogg`,
-   fuente en `fuentes_minimal/audio_videojuego.py`). Sigue la misma regla que la
-   guitarra: en inactividad solo suena sábados y domingos de 10:00 a 17:00, al 30 %
-   (el resto del tiempo la animación sale muda); pedido por voz suena siempre a
-   volumen normal.
+9. **Horarios de las actividades de inactividad** (hora de Costa Rica, por SNTP):
+   - ejercicio y leyendo: todos los días de 8:00 a 20:00, alternados;
+   - guitarra: sábado y domingo de 10:00 a 17:00, sonido al 25 %;
+   - videojuego: lunes a viernes de 11:00 a 16:00, sonido 8 bits al 25 %.
+   Nunca repite la misma actividad dos veces seguidas si hay otra disponible. Fuera
+   de horario (de noche) no hace actividades: solo mira alrededor hasta dormirse.
+   Pedidas por voz (show_face) salen a cualquier hora y suenan a volumen normal.
+   En la PC el 25 % son `guitarra_suave.wav` y `videojuego_suave.wav`; en la placa,
+   bajar la ganancia del códec mientras suenen. El loop del videojuego es propio:
+   `inactividad/videojuego.ogg`, fuente en `fuentes_minimal/audio_videojuego.py`.
 
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (45):** las 21 emociones del servidor, conversa_escucha,
   conversa_habla, pensando, furioso, despertar, saludo, sin_conexion, aburrido,
-  mirando, llamando, guitarra (fin de semana), ejercicio, videojuego, leyendo, bostezo, sleepy,
+  mirando, llamando, ejercicio, leyendo, guitarra, videojuego (cada una en su horario), bostezo, sleepy,
   navidad, anio_nuevo, musica, volumen, clima_sol/nube/lluvia, alarma,
   temporizador, recordatorio.
 - **Solo en la placa:** conectando, configurar_wifi, actualizando,

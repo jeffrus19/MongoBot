@@ -81,23 +81,34 @@ async def main():
     # inactividad con reloj acelerado
     vistas = {}
     reloj=[0.0]
-    sabado = lambda: datetime(2026, 11, 14, 11, 0)       # sábado 11:00: entra la guitarra
-    c = mc.Comportamiento(lambda e: vistas.setdefault(e, reloj[0]), reloj=lambda: reloj[0], hoy=lambda: date(2026,11,14),
-                          azar=random.Random(1), momento=sabado)
+    jueves = lambda: datetime(2026, 11, 12, 12, 0)       # jueves 12:00: ejercicio, leyendo y videojuego
+    c = mc.Comportamiento(lambda e: vistas.setdefault(e, reloj[0]), reloj=lambda: reloj[0], hoy=lambda: date(2026,11,12),
+                          azar=random.Random(1), momento=jueves)
     c.inicio()
     for s in range(720): reloj[0]=float(s); c.tic()
     for a, desc in [("saludo","al arrancar"),("aburrido","1 min sin hablarle"),("mirando","entre actividades"),
                     ("llamando","cada 3 actividades"),("bostezo","a los 10 min"),("sleepy","después del bostezo"),
-                    ("guitarra","inactividad sábado 11:00"),("ejercicio","actividad de inactividad"),
-                    ("videojuego","actividad de inactividad"),("leyendo","actividad de inactividad")]:
+                    ("ejercicio","inactividad 8:00-20:00"),("videojuego","inactividad L-V 11:00-16:00"),
+                    ("leyendo","inactividad 8:00-20:00")]:
         anotar(a, desc, a in vistas, f"min {vistas[a]/60:.1f}" if a in vistas else "no salió")
-    # guitarra fuera de horario: no debe salir
-    for cuando in (datetime(2026,11,12,11,0), datetime(2026,11,14,9,59), datetime(2026,11,15,17,0)):
+    # horarios: qué actividades salen en cada momento (en ~10 min de inactividad)
+    E, L, G, V = "ejercicio", "leyendo", "guitarra", "videojuego"
+    for cuando, esperado in ((datetime(2026,11,12,12,0), {E,L,V}),   # jueves mediodía
+                             (datetime(2026,11,12,10,30), {E,L}),    # jueves antes del videojuego
+                             (datetime(2026,11,12,16,0), {E,L}),     # jueves después del videojuego
+                             (datetime(2026,11,14,11,0), {E,L,G}),   # sábado con guitarra
+                             (datetime(2026,11,15,9,0), {E,L}),      # domingo temprano
+                             (datetime(2026,11,15,17,0), {E,L}),     # domingo ya sin guitarra
+                             (datetime(2026,11,16,7,59), set()),     # lunes muy temprano
+                             (datetime(2026,11,16,20,0), set())):    # lunes de noche
         vistas3=set(); r3=[0.0]
         c3 = mc.Comportamiento(vistas3.add, reloj=lambda: r3[0], hoy=lambda: cuando.date(), azar=random.Random(2), momento=lambda c=cuando: c)
         c3.inicio()
         for s in range(590): r3[0]=float(s); c3.tic()
-        anotar("ejercicio", f"sin guitarra el {cuando:%a %H:%M}", "guitarra" not in vistas3 and {"ejercicio","videojuego","leyendo"} <= vistas3, ",".join(sorted(vistas3)))
+        salieron = vistas3 & {E,L,G,V}
+        ok = salieron == esperado and (esperado or "mirando" in vistas3)
+        for a in (esperado or {"mirando"}):
+            anotar(a, f"{cuando:%a %H:%M}", ok, ",".join(sorted(salieron)) or "nada")
     for d, a in [(date(2026,12,20),"navidad"),(date(2026,12,31),"anio_nuevo")]:
         vistas2=[]; r2=[0.0]
         c2 = mc.Comportamiento(vistas2.append, reloj=lambda: r2[0], hoy=lambda d=d: d); c2.inicio()

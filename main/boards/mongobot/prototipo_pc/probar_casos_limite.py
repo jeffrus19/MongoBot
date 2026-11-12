@@ -152,7 +152,7 @@ async def main():
     await asyncio.sleep(2.2); ver("al soltar muestra lo de abajo", pan.cara, "aburrido")
 
     print("13. Sonido del videojuego (8 bits)")
-    for cuando, esperado in ((datetime(2026,11,12,11,0), None), (datetime(2026,11,15,16,0), ("videojuego", True, True))):
+    for cuando, esperado in ((datetime(2026,11,12,12,0), ("videojuego", True, True)),):
         pan, pres = nuevo(); c = mc.actual(); c._momento = lambda c2=cuando: c2
         c._contacto -= 100; c._fase = "entre"; c._fase_hasta = 0; c._actividades_hechas = 1
         c._ultima_actividad = "ejercicio"; c._azar.choice = lambda ops: "videojuego"

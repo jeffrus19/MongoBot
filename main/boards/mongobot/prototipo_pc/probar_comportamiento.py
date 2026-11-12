@@ -12,7 +12,7 @@ import os
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import asyncio, sys, random
 sys.path.insert(0, '.')
-from datetime import date
+from datetime import date, datetime
 from src.constants.constants import DeviceState as S
 from src.plugins.ui_presenter import UiPresenter
 from src.plugins import mongo_caras, mongo_alarmas, mongo_comportamiento as mc
@@ -102,7 +102,8 @@ def linea_de_tiempo(hoy=date(2026,11,11), segundos=720):
     reloj=[0.0]
     caras=[]; textos=[]
     c = mc.Comportamiento(lambda e: caras.append((reloj[0], e)), lambda t: textos.append((reloj[0], t)),
-                          reloj=lambda: reloj[0], hoy=lambda: hoy, azar=random.Random(3))
+                          reloj=lambda: reloj[0], hoy=lambda: hoy, azar=random.Random(3),
+                          momento=lambda: datetime.combine(hoy, datetime.min.time()).replace(hour=12))
     c.inicio()
     for s in range(segundos):
         reloj[0]=float(s); c.tic()

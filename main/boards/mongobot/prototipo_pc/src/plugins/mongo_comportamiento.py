@@ -17,12 +17,14 @@ Sistema
 
 Inactividad (sin que le hablés)
 - 0 a 60 s              -> neutral (o la cara de temporada en diciembre)
-- a los 60 s            -> aburrido, y luego alterna ejercicio, videojuego y leyendo, con ratos de
-                           "mirando" entre una y otra; cada tanto toca el vidrio para
-                           llamarte (llamando) y te dice algo. La guitarra solo entra en la
-                           rotación sábados y domingos de 10:00 a 17:00, y solo en ese
-                           horario suenan la guitarra y el videojuego (8 bits), al 30 %.
-                           Pedidas con show_face suenan siempre, a volumen normal
+- a los 60 s            -> aburrido, y luego alterna las actividades que tocan a esa hora
+                           (HORARIOS), con ratos de "mirando" entre una y otra; cada tanto
+                           toca el vidrio para llamarte (llamando) y te dice algo:
+                             ejercicio y leyendo   todos los días de 8:00 a 20:00
+                             guitarra              sábado y domingo de 10:00 a 17:00, sonido al 25 %
+                             videojuego            lunes a viernes de 11:00 a 16:00, sonido al 25 %
+                           Fuera de horario (de noche) solo mira alrededor. Pedidas con
+                           show_face salen a cualquier hora y suenan a volumen normal
 - a los 10 min          -> bostezo y se duerme (sleepy) hasta que le hablés
 
 Las caras pedidas con la herramienta show_face (mongo_caras) siguen mandando: mientras
@@ -55,10 +57,16 @@ DESPERTAR = 1.4
 ENOJO_VENTANA = 120
 ENOJO_VECES = 3
 
-ACTIVIDADES = ["ejercicio", "videojuego", "leyendo"]
-GUITARRA_DIAS = (5, 6)          # sábado y domingo (lunes = 0)
-GUITARRA_HORAS = (10, 17)       # de 10:00 a 17:00
-CON_SONIDO = ("guitarra", "videojuego")   # actividades con loop de audio (solo en ese horario)
+# actividad de inactividad -> (días, hora de inicio, hora de fin); lunes = 0
+TODOS = (0, 1, 2, 3, 4, 5, 6)
+HORARIOS = {
+    "ejercicio": (TODOS, 8, 20),
+    "leyendo": (TODOS, 8, 20),
+    "guitarra": ((5, 6), 10, 17),            # sábado y domingo
+    "videojuego": ((0, 1, 2, 3, 4), 11, 16),  # lunes a viernes
+}
+ACTIVIDADES = list(HORARIOS)
+CON_SONIDO = ("guitarra", "videojuego")   # actividades con loop de audio (al 25 %)
 FRASES_LLAMAR = [
     "Diay, ¿me vas a dejar aquí solito?",
     "Mae, aquí sigo, guapísimo como siempre, por si te interesa.",
@@ -136,16 +144,13 @@ class Comportamiento:
             return True
 
     def _actividades(self) -> list[str]:
-        """Actividades de inactividad; la guitarra solo fines de semana de día."""
-        acts = list(ACTIVIDADES)
-        if self._en_horario():
-            acts.append("guitarra")
-        return acts
+        """Actividades de inactividad que tocan ahora según HORARIOS."""
+        return [a for a in ACTIVIDADES if self._en_horario(a)]
 
-    def _en_horario(self) -> bool:
-        """Sábado o domingo de 10:00 a 17:00: puede tocar guitarra y sonar el videojuego."""
+    def _en_horario(self, actividad: str) -> bool:
+        dias, desde, hasta = HORARIOS.get(actividad, ((), 0, 0))
         m = self._momento()
-        return m.weekday() in GUITARRA_DIAS and GUITARRA_HORAS[0] <= m.hour < GUITARRA_HORAS[1]
+        return m.weekday() in dias and desde <= m.hour < hasta
 
     def _cara_reposo(self) -> str:
         hoy = self._hoy()
@@ -260,7 +265,7 @@ class Comportamiento:
                 self._mostrar(self._cara_reposo())
         if self.estado != "idle" or self._sin_red or self._hasta_saludo:
             return
-        if self.cara in CON_SONIDO and self._fase == "actividad" and not self._sonando_mio and self._en_horario():
+        if self.cara in CON_SONIDO and self._fase == "actividad" and not self._sonando_mio and self._en_horario(self.cara):
             self._sonido_actividad(True)      # una cara pedida tapó la actividad; vuelve el sonido
         if self._musica:                      # escuchando música no se aburre
             self._contacto = ahora
@@ -300,13 +305,18 @@ class Comportamiento:
                 self._texto(self._azar.choice(FRASES_LLAMAR))
                 self._actividades_hechas += 1      # para no llamar dos veces seguidas
                 return
-            opciones = [a for a in self._actividades() if a != self._ultima_actividad]
+            disponibles = self._actividades()
+            if not disponibles:                    # de noche: solo mira alrededor
+                self._fase, self._fase_hasta = "entre", ahora + ENTRE_ACTIVIDADES
+                self._mostrar("mirando")
+                return
+            opciones = [a for a in disponibles if a != self._ultima_actividad] or disponibles
             act = self._azar.choice(opciones)
             self._ultima_actividad = act
             self._fase, self._fase_hasta = "actividad", ahora + ACTIVIDAD
             self._actividades_hechas += 1
             self._mostrar(act)
-            if act in CON_SONIDO and self._en_horario():
+            if act in CON_SONIDO:
                 self._sonido_actividad(True)
             return
         if self._fase == "actividad":
