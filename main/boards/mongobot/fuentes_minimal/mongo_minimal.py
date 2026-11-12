@@ -82,6 +82,27 @@ def parpadeo(t, t0=1.7):
 
 
 # ---------------------------------------------------------------- lienzo
+# Animaciones sin boca: la expresión va solo en los ojos (y cejas, rubor, etc.)
+SIN_BOCA = {
+    "happy", "laughing", "funny", "sad", "crying", "angry", "loving", "embarrassed", "surprised",
+    "shocked", "thinking", "winking", "cool", "relaxed", "delicious", "kissy", "confident", "sleepy",
+    "silly", "excited", "smug", "furioso", "rodar_ojos", "esceptico", "picaro", "orgulloso", "aburrido",
+    "decepcionado", "presumido", "musica", "pomodoro_descanso",
+}
+ACTUAL = ""        # animación que se está dibujando (la ponen los generadores)
+
+
+def con_boca():
+    return ACTUAL not in SIN_BOCA
+
+
+# Tamaño estándar de la cabeza: radio 80 (el de las animaciones extra). Las emociones
+# de este archivo se dibujan con radio 62 y se agrandan con un zoom al centro de la
+# cabeza; las que necesitan espacio para interactuar (la cúpula de conversación) no.
+R_ESTANDAR = 80
+SIN_ZOOM = {"conversa_escucha", "conversa_habla"}
+
+
 class Lienzo:
     def __init__(self, color):
         self.img = Image.new("RGB", (W * SS, H * SS), (0, 0, 0))
@@ -90,6 +111,8 @@ class Lienzo:
         self.rot = 0.0
         self.piv = (CX, CY)
         self.cara = None   # cuando hay una Cara, lo de adentro se pinta sobre la esfera
+        self.zoom = 1.0    # agranda todo alrededor de zoom_c al terminar (final)
+        self.zoom_c = (CX, CY)
 
     def T(self, x, y):
         c = self.cara
@@ -144,7 +167,13 @@ class Lienzo:
             self.linea([(cx - (w - h) / 2, cy), (cx + (w - h) / 2, cy)], h, color)
 
     def final(self):
-        return self.img.resize((W, H), Image.LANCZOS)
+        img = self.img
+        if self.zoom != 1.0:
+            w, h = W * SS / self.zoom, H * SS / self.zoom
+            zx = min(max(self.zoom_c[0] * SS, w / 2), W * SS - w / 2)
+            zy = min(max(self.zoom_c[1] * SS, h / 2), H * SS - h / 2)
+            img = img.crop((int(zx - w / 2), int(zy - h / 2), int(zx + w / 2), int(zy + h / 2)))
+        return img.resize((W, H), Image.LANCZOS)
 
 
 def bezier(P, n=20):
@@ -244,11 +273,15 @@ def ojo_mayor(L, x, y, lado, w=10):
 
 
 def sonrisa(L, c, w=14, alto=9, dx=0, ancho=TRAZO * 0.75):
+    if not con_boca():
+        return
     L.linea(bezier([(c.mx - w + dx, c.my), (c.mx + dx, c.my + alto * 2), (c.mx + w + dx, c.my)]), ancho)
 
 
 def boca_abierta(L, c, w=16, alto=18, dy=0):
     """Boca abierta en forma de D, rellena con un color más oscuro."""
+    if not con_boca():
+        return
     x0, x1, y = c.mx - w, c.mx + w, c.my - 4 + dy
     pts = [(x0, y)] + bezier([(x0, y), (c.mx, y + alto * 1.6), (x1, y)])[1:] + [(x0, y)]
     oscuro = tuple(int(v * 0.35) for v in L.C)
@@ -257,23 +290,33 @@ def boca_abierta(L, c, w=16, alto=18, dy=0):
 
 
 def boca_o(L, c, r=9, dy=0):
+    if not con_boca():
+        return
     L.anillo(c.mx, c.my + dy, r * 0.85, r, TRAZO * 0.7)
 
 
 def boca_ondulada(L, c, w=16, amp=3, dy=0, fase=0.0):
+    if not con_boca():
+        return
     pts = [(c.mx - w + 2 * w * i / 16, c.my + dy + amp * math.sin(i / 16 * 4 * math.pi + fase)) for i in range(17)]
     L.linea(pts, TRAZO * 0.65)
 
 
 def boca_plana(L, c, w=12, dx=0, dy=0, inclina=0):
+    if not con_boca():
+        return
     L.linea([(c.mx - w + dx, c.my + dy - inclina), (c.mx + w + dx, c.my + dy + inclina)], TRAZO * 0.7)
 
 
 def sonrisa_lado(L, c, dx=6):
+    if not con_boca():
+        return
     L.linea(bezier([(c.mx - 6 + dx, c.my + 2), (c.mx + 8 + dx, c.my + 6), (c.mx + 18 + dx, c.my - 4)]), TRAZO * 0.7)
 
 
 def lengua(L, c, dx=0, largo=14, dy=0):
+    if not con_boca():
+        return
     x, y = c.mx + dx, c.my + 4 + dy
     pts = [(x - 7, y)] + [(x + 7 * math.cos(a), y + largo - 7 + 7 * math.sin(a)) for a in
                           [math.pi * (1 - i / 12) for i in range(13)]][::-1] + [(x + 7, y)]
@@ -427,7 +470,8 @@ def e_sad(L, t):
     for lado in (-1, 1):
         x, y = c.ojo(lado)
         ceja(L, x, y - 22, lado, -9)
-    L.linea(bezier([(c.mx - 12, c.my + 8), (c.mx, c.my - 2), (c.mx + 12, c.my + 8)]), TRAZO * 0.7)
+    if con_boca():
+        L.linea(bezier([(c.mx - 12, c.my + 8), (c.mx, c.my - 2), (c.mx + 12, c.my + 8)]), TRAZO * 0.7)
     # una lágrima que se forma y cae por la mejilla
     u = (t / DUR) % 1
     x, y = c.ojo(1)
@@ -595,8 +639,9 @@ def e_kissy(L, t):
         L.linea(bezier([(x - 10, y), (x, y + 7), (x + 10, y)]), TRAZO * 0.8)
     # boca de beso "3"
     bx, by = c.mx + 2, c.my + 2
-    L.linea(bezier([(bx - 4, by - 9), (bx + 9, by - 9), (bx + 6, by), (bx - 1, by)]) +
-            bezier([(bx - 1, by), (bx + 6, by), (bx + 9, by + 9), (bx - 4, by + 9)])[1:], TRAZO * 0.6)
+    if con_boca():
+        L.linea(bezier([(bx - 4, by - 9), (bx + 9, by - 9), (bx + 6, by), (bx - 1, by)]) +
+                bezier([(bx - 1, by), (bx + 6, by), (bx + 9, by + 9), (bx - 4, by + 9)])[1:], TRAZO * 0.6)
     rubor(L, c, 0.8)
     # un corazón sale volando
     u = (t / DUR) % 1
@@ -975,7 +1020,11 @@ def n_cuadros(nombre):
 
 
 def cuadro(nombre, t):
+    global ACTUAL
+    ACTUAL = nombre
     L = Lienzo(COLORES[nombre])
+    if nombre not in SIN_ZOOM:
+        L.zoom = R_ESTANDAR / RX
     globals()["e_" + nombre](L, t)
     return L.final()
 

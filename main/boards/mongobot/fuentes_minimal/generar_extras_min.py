@@ -622,6 +622,7 @@ ANIMS = [
 
 
 def cuadro(fn, t):
+    mm.ACTUAL = fn.__name__[2:]          # a_furioso -> furioso (para SIN_BOCA)
     L = mm.Lienzo((235, 235, 235))
     fn(L, t)
     return L.final()

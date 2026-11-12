@@ -106,12 +106,13 @@ def a_furioso(L, t):
         x, y = c.ojo(lado)
         mm.ceja(L, x, y - 16, lado, 15, 15, mm.TRAZO * 0.85)
     # dientes apretados
-    x0, x1, y0, y1 = c.mx - 16, c.mx + 16, c.my - 2, c.my + 10
-    L.d.rounded_rectangle((*L.T(x0, y0), *L.T(x1, y1)), radius=3 * mm.SS, fill=L.C)
-    L.linea([(x0 + 2, (y0 + y1) / 2), (x1 - 2, (y0 + y1) / 2)], 1.6, NEGRO)
-    for k in range(1, 4):
-        xx = x0 + k * (x1 - x0) / 4
-        L.linea([(xx, y0 + 1), (xx, y1 - 1)], 1.6, NEGRO)
+    if mm.con_boca():
+        x0, x1, y0, y1 = c.mx - 16, c.mx + 16, c.my - 2, c.my + 10
+        L.d.rounded_rectangle((*L.T(x0, y0), *L.T(x1, y1)), radius=3 * mm.SS, fill=L.C)
+        L.linea([(x0 + 2, (y0 + y1) / 2), (x1 - 2, (y0 + y1) / 2)], 1.6, NEGRO)
+        for k in range(1, 4):
+            xx = x0 + k * (x1 - x0) / 4
+            L.linea([(xx, y0 + 1), (xx, y1 - 1)], 1.6, NEGRO)
     L.cara = None
     mm.vena(L, c.cx + c.rx - 4, c.cy - c.ry + 8, 1.2 + 0.25 * math.sin(2 * math.pi * t / 0.25))
     for lado in (-1, 1):                                   # vapor saliendo por los lados de arriba
@@ -505,6 +506,7 @@ ANIMS = [
 
 
 def cuadro(fn, t):
+    mm.ACTUAL = fn.__name__[2:]          # a_furioso -> furioso (para SIN_BOCA)
     L = mm.Lienzo((235, 235, 235))
     fn(L, t)
     return L.final()
