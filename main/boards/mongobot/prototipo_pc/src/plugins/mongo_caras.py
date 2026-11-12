@@ -84,11 +84,30 @@ def _liberar() -> None:
     _bloqueada_hasta = 0.0
     _temporizador = None
     _sonido("", False)
-    siguiente = _pendiente or "neutral"
+    siguiente = _pendiente
+    if siguiente is None:
+        try:
+            from src.plugins import mongo_comportamiento
+
+            c = mongo_comportamiento.actual()
+            siguiente = c.cara if c and c.cara else None
+        except Exception:                                    # noqa: BLE001
+            siguiente = None
+    siguiente = siguiente or "neutral"
     _pendiente = None
     if _mostrar_en_pantalla:
         _mostrar_en_pantalla(siguiente)
     logger.info(f"[MongoCaras] fin de la cara pedida, vuelve a {siguiente}")
+
+
+def soltar() -> None:
+    """Termina ya la cara pedida y vuelve a la que toca."""
+    global _temporizador
+    if _temporizador is not None:
+        _temporizador.cancel()
+        _temporizador = None
+    if bloqueada():
+        _liberar()
 
 
 def mostrar(nombre: str, segundos: float) -> bool:

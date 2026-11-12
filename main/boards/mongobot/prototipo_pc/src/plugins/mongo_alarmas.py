@@ -193,7 +193,7 @@ def detener() -> bool:
     if estaba:
         from src.plugins import mongo_caras
 
-        mongo_caras.mostrar("neutral", 2)
+        mongo_caras.soltar()
         logger.info("[MongoAlarmas] alarma apagada")
     return estaba
 

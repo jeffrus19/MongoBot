@@ -1,6 +1,6 @@
 --- a/src/plugins/ui_presenter.py
 +++ b/src/plugins/ui_presenter.py
-@@ -30,10 +30,19 @@
+@@ -30,10 +30,23 @@
      }
  
      def __init__(self, viewport: Optional["ViewPort"] = None) -> None:
@@ -14,6 +14,10 @@
 +        from src.plugins import mongo_caras
 +
 +        mongo_caras.conectar(self._poner_cara if viewport else None)
++        # MongoBot: la capa de comportamiento elige la cara según la conversación
++        from src.plugins import mongo_comportamiento
++
++        self._mongo = mongo_comportamiento.crear(self.set_emotion, self.set_chat_text) if viewport else None
 +
 +    def _poner_cara(self, emotion: str) -> None:
 +        if self._vp:
@@ -21,7 +25,7 @@
  
      @property
      def viewport(self) -> Optional["ViewPort"]:
-@@ -48,6 +57,13 @@
+@@ -48,6 +61,13 @@
              self._vp.set_music_line(text)
  
      def set_emotion(self, emotion: str) -> None:
@@ -35,7 +39,25 @@
          if self._vp:
              self._vp.set_emotion(emotion)
  
-@@ -109,6 +125,16 @@
+@@ -68,11 +88,16 @@
+ 
+     def show_device_state(self, state) -> None:
+         if status_text := self.STATE_TEXT_MAP.get(state):
+-            self.set_emotion("neutral")
++            if getattr(self, "_mongo", None):
++                self._mongo.al_estado(state)        # MongoBot: escuchando, hablando, reposo
++            else:
++                self.set_emotion("neutral")
+             self.set_status(status_text, connected=True)
+ 
+     def show_network_error(self) -> None:
+         self.set_status("未连接", connected=False)
++        if getattr(self, "_mongo", None):
++            self._mongo.sin_conexion()
+ 
+     def show_music_state(self, data) -> None:
+         try:
+@@ -109,6 +134,21 @@
          if msg_type in ("tts", "stt"):
              if text := message.get("text"):
                  self.set_chat_text(text)
@@ -44,9 +66,15 @@
 +                    from src.plugins import mongo_alarmas
 +
 +                    mongo_alarmas.usuario_hablo(text)
++                    if getattr(self, "_mongo", None):
++                        self._mongo.al_texto_usuario(text)   # pensando
          elif msg_type == "llm":
              if emotion := message.get("emotion"):
-                 self.set_emotion(emotion)
+-                self.set_emotion(emotion)
++                if getattr(self, "_mongo", None):
++                    self._mongo.al_emocion(emotion)
++                else:
++                    self.set_emotion(emotion)
 +        elif msg_type == "alert":
 +            # MongoBot: el servidor manda avisos (errores, límites); mostrarlos
 +            logger.warning(f"[Servidor] alerta: {message}")
@@ -54,15 +82,16 @@
 +            self.set_chat_text(f"Aviso del servidor: {texto}")
 --- a/src/plugins/ui.py
 +++ b/src/plugins/ui.py
-@@ -41,6 +41,7 @@
+@@ -41,6 +41,8 @@
          self._stopping = False
          self._viewport_closed = False
          self._subscriptions = []
 +        self._alarmas_task: asyncio.Task | None = None
++        self._comportamiento_task: asyncio.Task | None = None
  
      async def setup(self, ctx: "PluginContext", cmd: "PluginCommands") -> None:
          await super().setup(ctx, cmd)
-@@ -72,6 +73,16 @@
+@@ -72,6 +74,27 @@
          if self._session:
              self._session.subscribe(bus)
  
@@ -76,10 +105,21 @@
 +        mongo_alarmas.conectar_envio(_enviar_aviso)
 +        self._alarmas_task = self._cmd.spawn(mongo_alarmas.correr(), name="ui:mongo_alarmas")
 +
++        # MongoBot: capa de comportamiento (saludo al arrancar, inactividad)
++        from src.plugins import mongo_comportamiento
++
++        async def _comportamiento() -> None:
++            await asyncio.sleep(1.5)                 # que la ventana termine de abrir
++            if (c := mongo_comportamiento.actual()) is not None:
++                c.inicio()
++            await mongo_comportamiento.correr()
++
++        self._comportamiento_task = self._cmd.spawn(_comportamiento(), name="ui:mongo_comportamiento")
++
          if self.viewport:
              self._viewport_task = self._cmd.spawn(
                  self._run_viewport(), name=f"ui:{self.mode}:start"
-@@ -96,6 +107,12 @@
+@@ -96,6 +119,15 @@
  
      async def stop(self) -> None:
          self._stopping = True
@@ -89,6 +129,9 @@
 +        if self._alarmas_task is not None:
 +            self._alarmas_task.cancel()
 +            self._alarmas_task = None
++        if self._comportamiento_task is not None:
++            self._comportamiento_task.cancel()
++            self._comportamiento_task = None
          self._presenter.bind(None)
          if self._session is not None:
              self._session.unsubscribe()
