@@ -203,7 +203,7 @@ def cabeza(L, c):
 def ojo_rect(L, c, x, y, w, h, color=None):
     """Ojo de rectángulo redondeado; se angosta y se inclina un poco al mirar de lado."""
     h = max(3.0, h)
-    rad = min(4.5, w / 2, h / 2)
+    rad = min(max(4.5, w * 0.24), w / 2, h / 2)
     giro = 0
     pts = []
     esquinas = [(w / 2 - rad, -h / 2 + rad, -90), (w / 2 - rad, h / 2 - rad, 0),
@@ -755,61 +755,174 @@ def e_mirando(L, t):
 
 
 # ---------------------------------------------------------------- conversación
-# Cuando hay una conversación, MongoBot se arrima a la pantalla: la cabeza
-# crece y baja hasta que solo se ve su cara blanca asomada desde abajo, con
-# ojos negros grandes. Así parece que te está poniendo atención.
-CERCA = dict(cx=160, cy=204, r=112, ojo_sep=30, ojo_y=166, ojo_w=14, ojo_h=44)
+# Cuando hay una conversación, MongoBot se arrima a la pantalla: la cabeza crece
+# hasta verse como una cúpula blanca cortada abajo, con ojos negros grandes que
+# se mueven sobre la esfera. Así parece que te está poniendo atención.
+CUPULA = dict(cx=160, cy=124, r=90, corte=176)
+OJO_CERCA = (240, 240, 240)          # de cerca los ojos son blancos
 
 
-def acercamiento(L, k, t, ojo_col, mira=(0.0, 0.0), asiente=0.0, boca=0.0, blink=True):
-    """k = 0 cabeza normal de frente; k = 1 cara de cerca. En medio se transforma:
-    crece, baja, la cara negra de adentro se cierra y los ojos se vuelven negros."""
+def cupula(L, t, lx=0.0, ly=0.0, k=1.0, ojo_col=OJO_CERCA, blink=True, voz=0.0, sonrisa=0.0, parp=None):
+    """Cara de cerca: cúpula con el aro blanco y la cara negra adentro, cortada abajo,
+    solo con ojos. La cara negra y los ojos van sobre la esfera y giran con (lx, ly).
+    k: 0 = cabeza normal, 1 = cúpula (transición).
+    voz: 0..1, los ojos se achatan apenas con cada sílaba.
+    sonrisa: 0..1, a los ojos se les curva la parte de abajo (ojos sonrientes)."""
     e = ease(k)
-    cx = CX + (CERCA["cx"] - CX) * e
-    cy = CY + (CERCA["cy"] - CY) * e + asiente
-    r = RX + (CERCA["r"] - RX) * e
-    L.circulo(cx, cy, r, ARO)
-    e2 = ease(k * 1.6)            # la cara de adentro se cierra antes de llegar
-    ri = r * 0.74 * (1 - e2)
-    if ri > 0.5:
-        L.circulo(cx, cy, ri, (0, 0, 0))
-    # ojos: de los de colores normales a los negros de cerca
-    sep = RX * 0.29 + (CERCA["ojo_sep"] - RX * 0.29) * e
-    ey = (CY - RY * 0.13) + (CERCA["ojo_y"] - (CY - RY * 0.13)) * e + asiente * 1.15
-    w = 18 + (CERCA["ojo_w"] - 18) * e
-    h = (30 + (CERCA["ojo_h"] - 30) * e) * (parpadeo(t % DUR) if blink else 1)
-    col = tuple(int(a + (b - a) * e2) for a, b in zip(ojo_col, (0, 0, 0)))
-    mx, my = mira[0] * 8 * e, mira[1] * 6 * e
+    cx = CX + (CUPULA["cx"] - CX) * e
+    cy = CY + (CUPULA["cy"] - CY) * e
+    r = RX + (CUPULA["r"] - RX) * e
+    c = Cara(r / RX, r / RY, dx=cx - CX, dy=cy - CY, lx=lx * e, ly=ly * e)
+    c.irx = c.iry = r * (0.74 + 0.06 * e)     # de cerca el aro se ve un poco más fino
+    cabeza(L, c)
+    if parp is None:
+        parp = parpadeo(t % DUR) if blink else 1.0
+    sep = RX * 0.29 + (27 - RX * 0.29) * e
+    ey = cy - (RY * 0.13 + (8 - RY * 0.13) * e)
+    w = (18 + (24 - 18) * e) * (1 + 0.06 * voz)
+    h = (30 + (40 - 30) * e) * parp * (1 - 0.14 * voz)
+    col = tuple(int(a + (b - a) * e) for a, b in zip(ojo_col, OJO_CERCA))
     for lado in (-1, 1):
-        L.pildora(cx + lado * sep + mx, ey + my, w, max(4, h), col)
-    if boca > 0.02 and e > 0.9:
-        # boca que se abre con la voz
-        L.pildora(cx + mx * 0.6, ey + 38 + my, 22 - 6 * boca, 6 + 16 * boca, (0, 0, 0))
+        ex = cx + lado * sep
+        ojo_rect(L, c, ex, ey - 2.5 * voz, w, max(4, h), col)
+        if sonrisa > 0.02:
+            # un arco negro muerde la parte de abajo del ojo: ojos sonrientes
+            yb = ey - 2.5 * voz + h / 2 + h * 0.12
+            pts = [(ex + w * 0.75 * math.cos(a), yb + h * 0.55 * sonrisa * math.sin(a)) for a in
+                   [2 * math.pi * i / 36 for i in range(36)]]
+            L.poligono(pts, (0, 0, 0))
+    L.cara = None
+    # el corte de abajo: la cúpula se asoma desde el borde
+    corte = 240 + (CUPULA["corte"] - 240) * e
+    if corte < 240:
+        L.d.rectangle((*L.T(0, corte), *L.T(W, H)), fill=(0, 0, 0))
+    return c
+
+
+def acercamiento(L, k, t, ojo_col, blink=True):
+    cupula(L, t, k=k, ojo_col=ojo_col, blink=blink)
+
+
+CONV_DUR = 6.0      # los estados de conversación duran más: movimientos lentos
 
 
 def nivel_voz(t):
-    """Volumen de voz simulado: sílabas irregulares."""
-    s = 0.5 + 0.5 * math.sin(2 * math.pi * 3.3 * t) * math.sin(2 * math.pi * 0.85 * t + 1.0)
-    s *= 0.55 + 0.45 * math.sin(2 * math.pi * 6.9 * t) ** 2
+    """Volumen de voz simulado (sílabas), repetible cada CONV_DUR segundos."""
+    f = 1 / CONV_DUR
+    s = 0.5 + 0.5 * math.sin(2 * math.pi * 20 * f * t) * math.sin(2 * math.pi * 5 * f * t + 1.0)
+    s *= 0.55 + 0.45 * math.sin(2 * math.pi * 41 * f * t) ** 2
     return max(0.0, min(1.0, s * 1.4))
 
 
+def voz_suave(t):
+    """La voz promediada en un cuarto de segundo: los ojos la siguen sin temblar."""
+    return sum(nivel_voz(t - 0.25 * i / 7) for i in range(8)) / 8
+
+
+def _suave(u):
+    """Curva más suave que ease: arranca y frena despacio, como un movimiento real."""
+    u = max(0.0, min(1.0, u))
+    return u * u * u * (u * (u * 6 - 15) + 10)
+
+
+def _mirada(puntos, t):
+    """Mirada entre puntos (momento en que llega, lx, ly, cuánto tarda en llegar)."""
+    for (_, x0, y0, _), (t1, x1, y1, d) in zip(puntos, puntos[1:]):
+        if t < t1:
+            if d > 0 and t >= t1 - d:
+                u = _suave((t - (t1 - d)) / d)
+                return x0 + (x1 - x0) * u, y0 + (y1 - y0) * u
+            return x0, y0
+    return puntos[-1][1], puntos[-1][2]
+
+
+def _deriva(t, amp=0.035):
+    """Microvaivén de la mirada: nunca está del todo quieta (periódico cada CONV_DUR)."""
+    f = 2 * math.pi / CONV_DUR
+    return (amp * (math.sin(f * t + 0.3) + 0.5 * math.sin(3 * f * t + 1.1)),
+            amp * (math.sin(2 * f * t + 2.0) + 0.4 * math.sin(5 * f * t)))
+
+
+def _parpadeos(t, momentos, dur=0.22):
+    k = 1.0
+    for tb in momentos:
+        u = (t - tb) / dur
+        if 0 <= u < 1:
+            k = min(k, 1 - 0.92 * math.sin(math.pi * u))
+    return k
+
+
 def e_conversa_escucha(L, t):
-    """De cerca, escuchando: asiente despacio y te mira, con algún vistazo de lado."""
-    asiente = 4 * max(0.0, math.sin(2 * math.pi * t / 1.2)) ** 2
-    mira = (0.5 * (ease((t - 0.9) / 0.2) - ease((t - 1.5) / 0.2)), -0.2)
-    acercamiento(L, 1, t, L.C, mira=mira, asiente=asiente)
+    """De cerca, escuchando: levanta la mirada despacio hacia arriba a la derecha,
+    como buscándote, se queda viéndote y asiente con calma dos veces."""
+    arriba, centro = (0.45, -0.52), (0.05, 0.12)
+    # (momento en que llega, lx, ly, cuánto tarda en llegar)
+    puntos = [(0.0, *centro, 0.0), (0.9, *arriba, 0.9), (2.3, *arriba, 0.0),
+              (2.9, 0.35, -0.05, 0.6), (3.6, *arriba, 0.7), (4.2, 0.35, -0.05, 0.6),
+              (4.9, *arriba, 0.7), (5.4, *arriba, 0.0), (6.0, *centro, 0.6)]
+    lx, ly = _mirada(puntos, t)
+    dx, dy = _deriva(t)
+    cupula(L, t, lx + dx, ly + dy, parp=_parpadeos(t, (1.7, 5.1)))
+
+
+# globitos: (aparece, desaparece, dx, dy, punta hacia) relativos al centro de la cúpula
+GLOBOS = [(0.2, 2.0, 62, -98, "abajo"), (2.2, 4.0, 122, -40, "izquierda"), (4.2, 5.8, -66, -98, "abajo_der")]
+
+
+def globo(L, x, y, k, puntos, punta):
+    """Globo de diálogo blanco con tres puntitos negros. k: 0..1 (con rebote al aparecer)."""
+    if k <= 0.02:
+        return
+    rx, ry = 34 * k, 19 * k
+    L.d.ellipse((*L.T(x - rx, y - ry), *L.T(x + rx, y + ry)), fill=ARO)
+    # la colita apunta hacia la cabeza
+    if punta == "abajo":            # colita abajo a la izquierda
+        L.poligono([(x - 14 * k, y + ry * 0.7), (x - 4 * k, y + ry * 0.8), (x - 18 * k, y + ry + 9 * k)], ARO)
+    elif punta == "abajo_der":      # colita abajo a la derecha
+        L.poligono([(x + 14 * k, y + ry * 0.7), (x + 4 * k, y + ry * 0.8), (x + 18 * k, y + ry + 9 * k)], ARO)
+    else:                           # colita hacia la izquierda, un poco abajo
+        L.poligono([(x - rx * 0.8, y + 2 * k), (x - rx * 0.6, y + 10 * k), (x - rx - 9 * k, y + 12 * k)], ARO)
+    for n in range(3):
+        a = max(0.0, min(1.0, puntos - n))
+        if a > 0:
+            s_ = 3.2 * k * a
+            px = x + (n - 1) * 11 * k
+            L.d.rectangle((*L.T(px - s_, y - s_), *L.T(px + s_, y + s_)), fill=(0, 0, 0))
 
 
 def e_conversa_habla(L, t):
-    """De cerca, hablando: la boca sigue la voz y la cara rebota un poquito."""
-    v = nivel_voz(t)
-    acercamiento(L, 1, t, L.C, asiente=-2 * v, boca=v)
+    """De cerca, hablando, solo con ojos: la misma cúpula de escuchar. Le van saliendo
+    globitos de diálogo alrededor y los ojos los miran despacio; siguen la voz con
+    suavidad y a ratos sonríen."""
+    v = voz_suave(t)
+    puntos_mirada = [(0.0, 0.1, -0.1, 0.0), (0.7, 0.35, -0.4, 0.7), (2.2, 0.35, -0.4, 0.0),
+                     (2.9, 0.5, -0.1, 0.7), (4.2, 0.5, -0.1, 0.0), (4.9, -0.35, -0.4, 0.7),
+                     (5.6, -0.35, -0.4, 0.0), (6.0, 0.1, -0.1, 0.4)]
+    lx, ly = _mirada(puntos_mirada, t)
+    dx, dy = _deriva(t, 0.025)
+    sonrisa = _suave((t - 2.4) / 0.5) * (1 - _suave((t - 3.7) / 0.5))
+    cupula(L, t, lx + dx, ly + dy - 0.03 * v, voz=v * (1 - 0.6 * sonrisa), sonrisa=sonrisa,
+           parp=_parpadeos(t, (1.3, 4.7)))
+    cx, cy = CUPULA["cx"], CUPULA["cy"]
+    for t0, t1, gx, gy, punta in GLOBOS:
+        if t0 <= t < t1:
+            u = t - t0
+            k = rebote(u / 0.3) if u < 0.3 else 1.0
+            if t > t1 - 0.25:
+                k = 1 - _suave((t - (t1 - 0.25)) / 0.25)
+            puntos = min(3.0, max(0.0, (u - 0.25) / 0.22))
+            globo(L, cx + gx, cy + gy + 2 * math.sin(2 * math.pi * u / 1.2), k, puntos, punta)
+
+
+def rebote(u):
+    """Aparece creciendo con un pequeño sobrepaso."""
+    u = max(0.0, min(1.0, u))
+    return 1 + 2.7 * (u - 1) ** 3 + 1.7 * (u - 1) ** 2
 
 
 def demo_conversacion(salida):
     """Video: cabeza normal -> se acerca -> escucha -> habla -> se aleja."""
-    dur = 10.0
+    dur = 16.0
     tmp = "/tmp/mm_conv"
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(tmp)
@@ -820,14 +933,27 @@ def demo_conversacion(salida):
             e_neutral(L, t % DUR)
         elif t < 2.0:
             acercamiento(L, (t - 1.2) / 0.8, t, COLORES["neutral"], blink=False)
-        elif t < 5.0:
+        elif t < 8.0:
             e_conversa_escucha(L, t - 2.0)
         elif t < 8.4:
-            e_conversa_habla(L, t - 5.0)
-        elif t < 9.2:
-            acercamiento(L, 1 - (t - 8.4) / 0.8, t, COLORES["neutral"], blink=False)
+            # de la cúpula a la esfera de hablar: fundido corto
+            L2 = Lienzo(COLORES["neutral"])
+            e_conversa_escucha(L, 0.0)
+            e_conversa_habla(L2, 0.0)
+            Image.blend(L.final(), L2.final(), ease((t - 8.0) / 0.4)).save(f"{tmp}/{i:04d}.png")
+            continue
+        elif t < 14.0:
+            e_conversa_habla(L, t - 8.4)
+        elif t < 14.4:
+            L2 = Lienzo(COLORES["neutral"])
+            e_conversa_habla(L, 5.6)
+            acercamiento(L2, 1.0, t, COLORES["neutral"], blink=False)
+            Image.blend(L.final(), L2.final(), ease((t - 14.0) / 0.4)).save(f"{tmp}/{i:04d}.png")
+            continue
+        elif t < 14.8:
+            acercamiento(L, 1 - (t - 14.4) / 0.4, t, COLORES["neutral"], blink=False)
         else:
-            e_neutral(L, (t - 9.2) % DUR)
+            e_neutral(L, (t - 14.8) % DUR)
         L.final().save(f"{tmp}/{i:04d}.png")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS), "-i", f"{tmp}/%04d.png",
                     "-vf", "scale=640:480:flags=lanczos,format=yuv420p", "-c:v", "libx264", "-crf", "18",
@@ -838,6 +964,13 @@ EMOCIONES = ["neutral", "happy", "laughing", "funny", "sad", "crying", "angry", 
              "embarrassed", "surprised", "shocked", "thinking", "winking", "cool", "relaxed",
              "delicious", "kissy", "confident", "sleepy", "silly", "confused", "excited",
              "smug", "terrified", "escuchando", "musica", "mirando", "conversa_escucha", "conversa_habla"]
+
+
+DURACION = {"conversa_escucha": CONV_DUR, "conversa_habla": CONV_DUR}
+
+
+def n_cuadros(nombre):
+    return int(round(DURACION.get(nombre, DUR) * FPS))
 
 
 def cuadro(nombre, t):
@@ -858,7 +991,7 @@ def generar(salida):
     anims = {}
     total = 0
     for n in EMOCIONES:
-        anims[n] = [cuadro(n, i / FPS) for i in range(N)]
+        anims[n] = [cuadro(n, i / FPS) for i in range(n_cuadros(n))]
         ruta = os.path.join(salida, f"{n}.gif")
         guardar_gif(anims[n], ruta)
         total += os.path.getsize(ruta)
@@ -874,12 +1007,12 @@ def generar(salida):
         fnt = None
     cols = 6
     filas = math.ceil(len(EMOCIONES) / cols)
-    for i in range(N * 3):
+    for i in range(int(CONV_DUR * FPS) * 2):
         hoja = Image.new("RGB", (320 * cols, 270 * filas), (14, 14, 14))
         d = ImageDraw.Draw(hoja)
         for k, n in enumerate(EMOCIONES):
             x, y = (k % cols) * 320, (k // cols) * 270
-            hoja.paste(anims[n][i % N], (x, y))
+            hoja.paste(anims[n][i % len(anims[n])], (x, y))
             d.text((x + 160, y + 255), n, fill=COLORES[n] if sum(COLORES[n]) > 60 else ARO, font=fnt, anchor="mm")
         hoja.save(f"{tmp}/{i:04d}.png")
     mp4 = os.path.join(salida, "mongo_minimal_todas.mp4")

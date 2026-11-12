@@ -19,6 +19,7 @@ py-xiaozhi.
 | `generar_guitarra_min.py` | Tocando guitarra: GIF, audio OGG para la placa y WAV para la PC. |
 | `generar_ejercicio_min.py` | Haciendo flexiones. |
 | `generar_videojuego_min.py` | Jugando videojuegos con un monstruito de 8 bits propio. |
+| `generar_extras_min.py` | Estados del sistema y funciones: pensando, despertar, conectando, sin conexión, saludo, alarma, temporizador, clima (sol, nube, lluvia), pomodoro (trabajo y descanso), presumido, llamando la atención, reacción al tacto (cosquillas, molesto, despertar) y leyendo. |
 | `audio_guitarra.py` | Módulo con el sonido de la guitarra y los tiempos de cada nota. |
 
 Uso (desde esta carpeta):
@@ -28,6 +29,7 @@ python mongo_minimal.py salida
 python generar_guitarra_min.py salida
 python generar_ejercicio_min.py salida
 python generar_videojuego_min.py salida
+python generar_extras_min.py salida
 ```
 
 Necesitan Pillow, numpy, scipy y ffmpeg en el PATH.
