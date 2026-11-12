@@ -27,6 +27,7 @@ _NOMINATIM = "https://nominatim.openstreetmap.org/search"
 _OSRM = "https://router.project-osrm.org/route/v1/driving/"
 _UA = "MongoBot/1.0 (asistente de voz personal; py-xiaozhi)"
 _ultima_consulta = 0.0
+consultas = 0          # cuántas veces se usó la herramienta (para saber si la IA la llamó)
 
 
 def _get_json(url: str, params: dict, timeout: float = 10.0) -> Any:
@@ -83,6 +84,8 @@ def _consultar(origen: str, destino: str) -> dict:
 
 
 async def check_traffic(args: dict[str, Any]) -> str:
+    global consultas
+    consultas += 1
     destino = str(args.get("destination", "")).strip()
     origen = str(args.get("origin", "")).strip() or ORIGEN_POR_DEFECTO
     if not destino:

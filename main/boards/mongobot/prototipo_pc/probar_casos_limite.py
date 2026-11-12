@@ -405,6 +405,25 @@ async def main():
     pres.show_protocol_message({"type": "tts", "state": "sentence_start", "text": "Qué día más soleado."})
     ver("sin cara de clima puesta no cambia nada", pan.cara, "happy")
     mongo_caras.soltar()
+    print("28. Preguntas de ruta: si la IA no usa OpenStreetMap, se lo pide otra vez")
+    from src.mcp.tools.trafico import service as tr
+    enviados.clear(); mongo_alarmas.conectar_envio(env)
+    pan, pres = nuevo()
+    pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type": "stt", "text": "ruta a escazú"})
+    pres.show_device_state(S.SPEAKING); pres.show_device_state(S.IDLE); await asyncio.sleep(0.05)
+    ver("la IA no buscó: se lo pide", enviados[-1:], ["usa OpenStreetMap: ruta a escazú"])
+    enviados.clear(); pan, pres = nuevo()
+    pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type": "stt", "text": "cómo llego a Cartago"})
+    tr.consultas += 1                                   # la IA sí llamó a la herramienta
+    pres.show_device_state(S.SPEAKING); pres.show_device_state(S.IDLE); await asyncio.sleep(0.05)
+    ver("la IA sí buscó: no repite", enviados, [])
+    pan, pres = nuevo()
+    pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type": "stt", "text": "usa OpenStreetMap: ruta a escazú"})
+    pres.show_device_state(S.SPEAKING); pres.show_device_state(S.IDLE); await asyncio.sleep(0.05)
+    ver("el pedido repetido no se vuelve a repetir", enviados, [])
+    for t, esp in (("cuánto duro a Heredia", True), ("qué tan lejos queda Limón", True), ("cómo está el tráfico", True),
+                   ("hola mae", False), ("pon música", False)):
+        ver(f"{t!r} es pregunta de ruta", bool(mc.PEDIR_RUTA.search(t)), esp)
     print(f"\n{ok_total} bien, {fallas} fallas")
 
 asyncio.run(main())

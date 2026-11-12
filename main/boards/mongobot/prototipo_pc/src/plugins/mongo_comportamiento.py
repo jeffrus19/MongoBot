@@ -128,6 +128,13 @@ def cara_de_frase_clima(texto: str) -> str | None:
     return None
 
 
+# "ruta a Escazú", "¿cómo llego a...?", "¿cuánto duro a...?": si la IA contesta sin usar la
+# herramienta de rutas, MongoBot se lo vuelve a pedir una vez, diciéndole que use OpenStreetMap
+PEDIR_RUTA = re.compile(
+    r"\bruta\b|c[oó]mo llego|c[oó]mo (me )?voy|cu[aá]nto (duro|dura|tardo|tarda|se dura)|qu[eé] tan lejos|"
+    r"distancia (a|de|hasta)|tr[aá]fico|presa|direcciones (a|para)", re.IGNORECASE)
+
+
 REVISAR_RED_CADA = 15      # segundos entre pruebas mientras está sin conexión
 # "dame un pompi" (choque de puños/cinco): saludo con su palmada. Incluye cómo lo
 # suele escribir el reconocimiento de voz.
@@ -181,6 +188,7 @@ class Comportamiento:
         self._dormido_noche = False    # se durmió por la hora: a las 6:00 se levanta solo
         self._sin_red = False
         self._alarma_pendiente = None
+        self._ruta_pendiente = None
         self._juegos = (None, 0)       # (día, veces que jugó videojuego solo ese día)
         self._por_revisar_red = False
         self._ultima_revision_red = float("-inf")
@@ -229,6 +237,10 @@ class Comportamiento:
             self._revisar_alarma_pendiente()
         except Exception as e:                                   # noqa: BLE001
             logger.error(f"[Comportamiento] alarma pendiente: {e}")
+        try:
+            self._revisar_ruta_pendiente()
+        except Exception as e:                                   # noqa: BLE001
+            logger.error(f"[Comportamiento] ruta pendiente: {e}")
         try:
             from src.plugins import mongo_caras
 
@@ -379,6 +391,34 @@ class Comportamiento:
             self._mostrar("pensando")
         self._clima_si_pregunta(texto)
         self._alarma_si_pide(texto)
+        self._ruta_si_pide(texto)
+
+    def _ruta_si_pide(self, texto: str) -> None:
+        if not PEDIR_RUTA.search(texto or "") or texto.lower().startswith("usa openstreetmap"):
+            return
+        from src.mcp.tools.trafico import service
+
+        self._ruta_pendiente = (texto, service.consultas)
+
+    def _revisar_ruta_pendiente(self) -> None:
+        pend, self._ruta_pendiente = self._ruta_pendiente, None
+        if not pend:
+            return
+        texto, antes = pend
+        from src.mcp.tools.trafico import service
+
+        if service.consultas > antes:
+            return                                       # la IA sí usó la herramienta
+        from src.plugins import mongo_alarmas
+
+        if mongo_alarmas._enviar is None:
+            return
+        pedido = f"usa OpenStreetMap: {texto}"[:60]
+        logger.info(f"[Comportamiento] la IA no buscó la ruta; se lo pido otra vez: {pedido}")
+        try:
+            asyncio.get_running_loop().create_task(mongo_alarmas._enviar(pedido))
+        except RuntimeError:
+            pass
 
     def _alarma_si_pide(self, texto: str) -> None:
         """Recuerda el pedido de alarma; al terminar la respuesta se revisa si la IA la programó."""

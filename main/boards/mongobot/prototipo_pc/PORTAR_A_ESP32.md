@@ -173,6 +173,12 @@ respetar estas reglas, porque cada una corrigió un error real:
    dice soleado o despejado a clima_sol (`cara_de_frase_clima`). Así nunca dice
    "soleado" con el paraguas, aunque la IA conteste de memoria.
 
+26. **Rutas: OpenStreetMap siempre.** La descripción de self.traffic.check dice que es la
+   forma predeterminada (y única) de contestar rutas, distancias y tiempos de viaje. Si
+   preguntás una ruta ("ruta a Escazú", "¿cómo llego a...?", "¿cuánto duro a...?") y la
+   IA contesta sin usarla, al terminar MongoBot le manda "usa OpenStreetMap: <tu
+   pregunta>" una sola vez (regex `PEDIR_RUTA`).
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,
