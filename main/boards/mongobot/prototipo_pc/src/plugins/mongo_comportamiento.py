@@ -34,9 +34,10 @@ Inactividad (sin que le hablés)
                              leyendo               todos los días de 8:00 a 20:00
                              guitarra              sábado y domingo de 10:00 a 17:00, sonido al 15 %
                              videojuego            lunes a viernes de 11:00 a 16:00, sonido al 15 %
-                           Fuera de horario (de noche) solo mira alrededor. Pedidas con
-                           show_face salen a cualquier hora y suenan a volumen normal
-- a los 10 min          -> bostezo y se duerme (sleepy) hasta que le hablés
+                           De día nunca se duerme: en las horas sin actividad programada
+                           (6:00-8:00 y 20:00-22:00) alterna leyendo y videojuego, este
+                           sin sonido. Pedidas con show_face salen a cualquier hora y
+                           suenan a volumen normal
 
 Noche (de 22:00 a 6:00, todos los días)
 - Al minuto sin hablarle -> bostezo, "buenas noches" y se duerme. Si lo despertás (por
@@ -64,7 +65,7 @@ logger = get_logger()
 
 # tiempos (segundos); las pruebas los acortan
 ABURRIRSE = 60
-DORMIR = 600
+DORMIR = 600               # (ya no se usa de día: solo duerme de noche)
 ACTIVIDAD = 40
 ENTRE_ACTIVIDADES = 8
 ABURRIDO = 6
@@ -82,6 +83,9 @@ REVISAR_RED_CADA = 15      # segundos entre pruebas mientras está sin conexión
 POMPI = re.compile(r"\b(pomp[iy]e?s?|pombi(s)?)\b", re.IGNORECASE)
 NOCHE = (22, 6)            # duerme de 22:00 a 6:00
 DORMIR_NOCHE = 60          # de noche, segundos sin hablarle antes de dormirse
+RELLENO = ["leyendo", "videojuego"]   # de día, cuando no toca ninguna actividad programada
+ACTUALIZAR = re.compile(r"\bactualiz\w*", re.IGNORECASE)   # "actualizá...", "actualizar..."
+ACTUALIZANDO_MIN = 6       # segundos mínimos de la animación actualizando
 
 # actividad de inactividad -> lista de (días, hora de inicio, hora de fin); lunes = 0
 TODOS = (0, 1, 2, 3, 4, 5, 6)
@@ -169,8 +173,7 @@ class Comportamiento:
         try:
             from src.plugins import mongo_caras
 
-            if mongo_caras.dura_hasta_respuesta():
-                mongo_caras.soltar()
+            mongo_caras.fin_de_respuesta()
         except Exception:                                        # noqa: BLE001
             pass
 
@@ -192,7 +195,10 @@ class Comportamiento:
 
     def _actividades(self) -> list[str]:
         """Actividades de inactividad que tocan ahora según HORARIOS."""
-        return [a for a in ACTIVIDADES if self._en_horario(a)]
+        acts = [a for a in ACTIVIDADES if self._en_horario(a)]
+        if not acts and not self.es_de_noche():
+            acts = list(RELLENO)              # de día siempre hace algo (nunca se duerme)
+        return acts
 
     def _en_horario(self, actividad: str) -> bool:
         m = self._momento()
@@ -293,6 +299,14 @@ class Comportamiento:
             mongo_caras.mostrar("saludo", SALUDO)     # choca los cinco con su palmada
             self.cara = "saludo"
             logger.info("[Comportamiento] pompi: saludo")
+            return
+        if ACTUALIZAR.search(texto or ""):
+            from src.plugins import mongo_caras
+
+            # acompaña la respuesta, pero al menos ACTUALIZANDO_MIN segundos
+            mongo_caras.mostrar("actualizando", 60, hasta_respuesta=True, minimo=ACTUALIZANDO_MIN)
+            self.cara = "actualizando"
+            logger.info("[Comportamiento] le pidieron actualizar: actualizando")
             return
         if self.estado != "speaking":
             self._mostrar("pensando")
@@ -396,7 +410,7 @@ class Comportamiento:
             if self._dormido_noche and not noche:
                 self._levantarse(ahora)
             return
-        if quieto >= (DORMIR_NOCHE if noche else DORMIR) and self._fase != "bostezo":
+        if noche and quieto >= DORMIR_NOCHE and self._fase != "bostezo":
             self._fase, self._fase_hasta = "bostezo", ahora + BOSTEZO
             self._mostrar("bostezo")
             self._texto("Buenas noches... a dormir, que la belleza no se mantiene sola."
@@ -439,7 +453,7 @@ class Comportamiento:
             self._fase, self._fase_hasta = "actividad", ahora + ACTIVIDAD
             self._actividades_hechas += 1
             self._mostrar(act)
-            if act in CON_SONIDO:
+            if act in CON_SONIDO and self._en_horario(act):   # el videojuego de relleno va mudo
                 self._sonido_actividad(True)
             return
         if self._fase == "actividad":

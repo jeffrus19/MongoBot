@@ -108,6 +108,13 @@ respetar estas reglas, porque cada una corrigió un error real:
    código WMO) acompaña toda la respuesta y se suelta cuando termina de hablar
    (`mostrar(..., hasta_respuesta=True)`).
 
+16. **De día no se duerme.** Solo duerme de noche (22:00 a 6:00). En las horas del
+   día sin actividad programada (6:00-8:00 y 20:00-22:00) alterna leyendo y videojuego
+   (este sin sonido). Ya no existe la siesta de los 10 minutos.
+17. **"Actualizá...":** si lo que dijiste trae "actualiz..." (actualizá, actualizar,
+   actualizame), sale actualizando mientras contesta, con un mínimo de 6 s
+   (`mostrar(..., hasta_respuesta=True, minimo=6)` y `fin_de_respuesta()`).
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

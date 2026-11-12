@@ -27,6 +27,7 @@ _pendiente: str | None = None
 _temporizador: asyncio.TimerHandle | None = None
 _sonando = False
 _hasta_respuesta = False      # la cara se suelta cuando MongoBot termina de contestar
+_minimo_hasta = 0.0           # ...pero no antes de este momento (tiempo mínimo)
 CON_SONIDO = ("guitarra", "videojuego")     # caras que llevan un loop de audio
 GOLPES = {"llamando": True, "saludo": False}  # MongoBot toca la pantalla: nombre -> se repite
 
@@ -114,6 +115,25 @@ def _liberar() -> None:
     logger.info(f"[MongoCaras] fin de la cara pedida, vuelve a {siguiente}")
 
 
+def fin_de_respuesta() -> None:
+    """MongoBot terminó de contestar: suelta la cara que solo lo acompañaba, respetando
+    su tiempo mínimo (si falta, la deja hasta que se cumpla)."""
+    global _temporizador
+    if not dura_hasta_respuesta():
+        return
+    falta = _minimo_hasta - time.monotonic()
+    if falta <= 0:
+        soltar()
+        return
+    try:
+        loop = asyncio.get_running_loop()
+        if _temporizador is not None:
+            _temporizador.cancel()
+        _temporizador = loop.call_later(falta, _liberar)
+    except RuntimeError:
+        soltar()
+
+
 def soltar() -> None:
     """Termina ya la cara pedida y vuelve a la que toca."""
     global _temporizador
@@ -124,17 +144,19 @@ def soltar() -> None:
         _liberar()
 
 
-def mostrar(nombre: str, segundos: float, hasta_respuesta: bool = False) -> bool:
+def mostrar(nombre: str, segundos: float, hasta_respuesta: bool = False, minimo: float = 0.0) -> bool:
     """Pone la cara ``nombre`` durante ``segundos``. Devuelve False si no hay pantalla.
     ``hasta_respuesta``: además se suelta en cuanto MongoBot termina de contestar
-    (p. ej. el clima: la cara acompaña la respuesta, ni más ni menos)."""
-    global _bloqueada_hasta, _temporizador, _hasta_respuesta
+    (p. ej. el clima: la cara acompaña la respuesta, ni más ni menos).
+    ``minimo``: con hasta_respuesta, se queda al menos estos segundos."""
+    global _bloqueada_hasta, _temporizador, _hasta_respuesta, _minimo_hasta
     if _mostrar_en_pantalla is None:
         return False
     _sonido("", False)
     _mostrar_en_pantalla(nombre)
     _bloqueada_hasta = time.monotonic() + segundos
     _hasta_respuesta = hasta_respuesta
+    _minimo_hasta = time.monotonic() + minimo
     _sonido(nombre, True)
     try:
         loop = asyncio.get_running_loop()

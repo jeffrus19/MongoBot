@@ -17,7 +17,7 @@ GRUPOS = [
     ("Conversación", "escuchando en la primera pregunta; conversa_escucha y conversa_habla en la conversación continua.",
      "escuchando conversa_escucha conversa_habla pensando despertar mirando llamando"),
     ("Inactividad", "Ejercicio mar-jue 9-10 y sáb-dom 8-11 · leyendo todos los días 8-20 · guitarra sáb-dom 10-17 · "
-     "videojuego L-V 11-16 (sonido al 15 %). Pedidas por voz salen a cualquier hora.",
+     "videojuego L-V 11-16 (sonido al 15 %). En las otras horas del día alterna leyendo y videojuego; solo duerme de 22 a 6. Pedidas por voz salen a cualquier hora.",
      "ejercicio leyendo guitarra videojuego musica"),
     ("Sistema y placa", "Arranque, conexión, volumen y pantalla táctil.",
      "saludo sin_conexion conectando configurar_wifi actualizando volumen tacto_cosquillas tacto_molesto "

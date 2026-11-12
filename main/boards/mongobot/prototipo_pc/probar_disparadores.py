@@ -98,7 +98,7 @@ async def main():
     c.inicio()
     for s in range(720): reloj[0]=float(s); c.tic()
     for a, desc in [("saludo","al arrancar"),("aburrido","1 min sin hablarle"),("mirando","entre actividades"),
-                    ("llamando","cada 3 actividades"),("bostezo","a los 10 min"),("sleepy","después del bostezo"),
+                    ("llamando","cada 3 actividades"),
                     ("leyendo","inactividad 8:00-20:00")]:
         anotar(a, desc, a in vistas, f"min {vistas[a]/60:.1f}" if a in vistas else "no salió")
     # horarios: qué actividades salen en cada momento (en ~10 min de inactividad)
@@ -113,15 +113,21 @@ async def main():
                              (datetime(2026,11,14,11,0), {L,G}),     # sábado: termina el ejercicio
                              (datetime(2026,11,15,10,30), {E,L,G}),  # domingo: ejercicio y guitarra
                              (datetime(2026,11,15,17,0), {L}),       # domingo ya sin guitarra
-                             (datetime(2026,11,16,7,59), set()),     # lunes muy temprano
-                             (datetime(2026,11,16,20,0), set())):    # lunes de noche
+                             (datetime(2026,11,16,7,59), {L,V}),     # lunes temprano: relleno
+                             (datetime(2026,11,16,20,0), {L,V}),     # lunes 20:00: relleno
+                             (datetime(2026,11,16,23,0), set())):    # de noche: se duerme
         vistas3=set(); r3=[0.0]
         c3 = mc.Comportamiento(vistas3.add, reloj=lambda: r3[0], hoy=lambda: cuando.date(), azar=random.Random(2), momento=lambda c=cuando: c)
         c3.inicio()
         for s in range(590): r3[0]=float(s); c3.tic()
         salieron = vistas3 & {E,L,G,V}
-        ok = salieron == esperado and (esperado or "mirando" in vistas3)
-        for a in (esperado or {"mirando"}):
+        if not esperado:                                          # noche: bosteza y se duerme
+            ok = not salieron and {"bostezo", "sleepy"} <= vistas3
+            for a in ("bostezo", "sleepy"):
+                anotar(a, f"se duerme {cuando:%a %H:%M}", ok, ",".join(sorted(vistas3)))
+            continue
+        ok = salieron == esperado and "bostezo" not in vistas3   # de día nunca se duerme
+        for a in esperado:
             anotar(a, f"{cuando:%a %H:%M}", ok, ",".join(sorted(salieron)) or "nada")
     for d, a in [(date(2026,12,20),"navidad"),(date(2026,12,31),"anio_nuevo")]:
         vistas2=[]; r2=[0.0]
