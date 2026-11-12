@@ -110,6 +110,24 @@ def hora_de_alarma(texto: str, ahora: datetime | None = None) -> tuple[int, int]
     return h, mi
 
 
+_FRASE_LLUVIA = re.compile(r"llov|lluev|lluvi|aguacer|tormenta|chubasc|paraguas|sombrilla", re.IGNORECASE)
+_FRASE_NUBE = re.compile(r"nublad|nubes|nuboso|gris|neblina|niebla|encapotad", re.IGNORECASE)
+_FRASE_SOL = re.compile(r"soleado|despejad|\bsol\b|solazo|cielo (limpio|azul)|buen tiempo", re.IGNORECASE)
+_NEGACION = re.compile(r"\b(no|sin|nada de|ni)\s+(\w+\s+){0,2}(llov|lluev|lluvi|aguacer)", re.IGNORECASE)
+
+
+def cara_de_frase_clima(texto: str) -> str | None:
+    """Qué animación de clima corresponde a lo que dice MongoBot (None si no habla del cielo)."""
+    t = texto or ""
+    if _FRASE_LLUVIA.search(t) and not _NEGACION.search(t):
+        return "clima_lluvia"
+    if _FRASE_NUBE.search(t):
+        return "clima_nube"
+    if _FRASE_SOL.search(t):
+        return "clima_sol"
+    return None
+
+
 REVISAR_RED_CADA = 15      # segundos entre pruebas mientras está sin conexión
 # "dame un pompi" (choque de puños/cinco): saludo con su palmada. Incluye cómo lo
 # suele escribir el reconocimiento de voz.
@@ -386,6 +404,20 @@ class Comportamiento:
         it = mongo_alarmas.programar("alarma", mongo_alarmas.proxima(h, m, []), hora=(h, m))
         logger.info(f"[Comportamiento] la IA no programó la alarma: la programo yo ({mongo_alarmas.describir(it)})")
         self._texto(f"Alarma programada para las {h:02d}:{m:02d}")
+
+    def al_frase(self, texto: str) -> None:
+        """Frase que está diciendo MongoBot (tts). Si está la cara del clima, que coincida con
+        lo que dice: si dice 'soleado' no puede tener el paraguas."""
+        from src.plugins import mongo_caras
+
+        actual = mongo_caras.cara_pedida()
+        if not actual or not actual.startswith("clima_"):
+            return
+        nueva = cara_de_frase_clima(texto)
+        if nueva and nueva != actual:
+            logger.info(f"[Comportamiento] dice '{texto[:60]}': {actual} -> {nueva}")
+            mongo_caras.mostrar(nueva, 60, hasta_respuesta=True)
+            self.cara = nueva
 
     def _clima_si_pregunta(self, texto: str) -> None:
         """Pregunta del clima: pone la animación del clima real, la use o no la IA."""

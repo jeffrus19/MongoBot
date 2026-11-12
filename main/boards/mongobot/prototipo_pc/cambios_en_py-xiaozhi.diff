@@ -425,7 +425,7 @@ index 304b03a..3cac706 100644
          if self._session is not None:
              self._session.unsubscribe()
 diff --git a/src/plugins/ui_presenter.py b/src/plugins/ui_presenter.py
-index 1e30dea..ccbe62f 100644
+index 1e30dea..a91420b 100644
 --- a/src/plugins/ui_presenter.py
 +++ b/src/plugins/ui_presenter.py
 @@ -15,25 +15,38 @@ class UiPresenter:
@@ -519,7 +519,7 @@ index 1e30dea..ccbe62f 100644
              template = self.MUSIC_STATE_TEXT.get(data.state)
              if not template:
                  return
-@@ -106,9 +133,31 @@ class UiPresenter:
+@@ -106,9 +133,33 @@ class UiPresenter:
          if not isinstance(message, dict):
              return
          msg_type = message.get("type")
@@ -536,6 +536,8 @@ index 1e30dea..ccbe62f 100644
 +                    mongo_alarmas.usuario_hablo(text)
 +                    if getattr(self, "_mongo", None):
 +                        self._mongo.al_texto_usuario(text)   # pensando
++                elif getattr(self, "_mongo", None):
++                    self._mongo.al_frase(text)           # MongoBot: el clima de la cara = el que dice
          elif msg_type == "llm":
              if emotion := message.get("emotion"):
 -                self.set_emotion(emotion)

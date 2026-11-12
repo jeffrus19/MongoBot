@@ -167,6 +167,12 @@ respetar estas reglas, porque cada una corrigió un error real:
    en el rol del agente (porque en el primer turno las herramientas pueden no estar
    cargadas todavía).
 
+25. **La cara del clima coincide con lo que dice.** Mientras está puesta una cara de
+   clima, cada frase que dice MongoBot (mensajes `tts` con texto) se revisa: si habla de
+   lluvia (y no "no va a llover") pasa a clima_lluvia, si dice nublado a clima_nube, si
+   dice soleado o despejado a clima_sol (`cara_de_frase_clima`). Así nunca dice
+   "soleado" con el paraguas, aunque la IA conteste de memoria.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

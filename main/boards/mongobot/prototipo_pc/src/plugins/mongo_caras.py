@@ -27,6 +27,7 @@ _pendiente: str | None = None
 _temporizador: asyncio.TimerHandle | None = None
 _sonando = False
 _hasta_respuesta = False      # la cara se suelta cuando MongoBot termina de contestar
+_cara_pedida: str | None = None   # la cara que está puesta con candado
 _minimo_hasta = 0.0           # ...pero no antes de este momento (tiempo mínimo)
 CON_SONIDO = ("guitarra", "videojuego")     # caras que llevan un loop de audio
 GOLPES = {"llamando": True, "saludo": False,  # MongoBot toca la pantalla: nombre -> se repite
@@ -38,6 +39,10 @@ def conectar(fn: Callable[[str], None] | None) -> None:
     """La pantalla registra cómo poner una cara (o None al cerrarse)."""
     global _mostrar_en_pantalla
     _mostrar_en_pantalla = fn
+
+
+def cara_pedida() -> str | None:
+    return _cara_pedida if bloqueada() else None
 
 
 def dura_hasta_respuesta() -> bool:
@@ -152,13 +157,14 @@ def mostrar(nombre: str, segundos: float, hasta_respuesta: bool = False, minimo:
     ``hasta_respuesta``: además se suelta en cuanto MongoBot termina de contestar
     (p. ej. el clima: la cara acompaña la respuesta, ni más ni menos).
     ``minimo``: con hasta_respuesta, se queda al menos estos segundos."""
-    global _bloqueada_hasta, _temporizador, _hasta_respuesta, _minimo_hasta
+    global _bloqueada_hasta, _temporizador, _hasta_respuesta, _minimo_hasta, _cara_pedida
     if _mostrar_en_pantalla is None:
         return False
     _sonido("", False)
     _mostrar_en_pantalla(nombre)
     _bloqueada_hasta = time.monotonic() + segundos
     _hasta_respuesta = hasta_respuesta
+    _cara_pedida = nombre
     _minimo_hasta = time.monotonic() + minimo
     _sonido(nombre, True)
     try:
