@@ -32,8 +32,8 @@ Inactividad (sin que le hablés)
                            toca el vidrio para llamarte (llamando) y te dice algo:
                              ejercicio             mar, mié y jue de 9:00 a 10:00; sáb y dom de 8:00 a 11:00
                              leyendo               todos los días de 8:00 a 20:00
-                             guitarra              sábado y domingo de 10:00 a 17:00, sonido al 25 %
-                             videojuego            lunes a viernes de 11:00 a 16:00, sonido al 25 %
+                             guitarra              sábado y domingo de 10:00 a 17:00, sonido al 15 %
+                             videojuego            lunes a viernes de 11:00 a 16:00, sonido al 15 %
                            Fuera de horario (de noche) solo mira alrededor. Pedidas con
                            show_face salen a cualquier hora y suenan a volumen normal
 - a los 10 min          -> bostezo y se duerme (sleepy) hasta que le hablés
@@ -89,7 +89,7 @@ HORARIOS = {
     "videojuego": [((0, 1, 2, 3, 4), 11, 16)],  # lunes a viernes
 }
 ACTIVIDADES = list(HORARIOS)
-CON_SONIDO = ("guitarra", "videojuego")   # actividades con loop de audio (al 25 %)
+CON_SONIDO = ("guitarra", "videojuego")   # actividades con loop de audio (al 15 %)
 FRASES_LLAMAR = [
     "Diay, ¿me vas a dejar aquí solito?",
     "Mae, aquí sigo, guapísimo como siempre, por si te interesa.",
@@ -140,7 +140,7 @@ class Comportamiento:
             self._sonido_actividad(False)
 
     def _sonido_actividad(self, encender: bool) -> None:
-        """Loop de la actividad actual (guitarra o videojuego) al 30 %. Solo apaga el
+        """Loop de la actividad actual (guitarra o videojuego) al 15 %. Solo apaga el
         sonido si lo encendió esta capa: lo pedido con show_face lleva su propio
         sonido y su propio tiempo."""
         if not encender and not self._sonando_mio:

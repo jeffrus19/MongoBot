@@ -60,12 +60,12 @@ respetar estas reglas, porque cada una corrigió un error real:
 9. **Horarios de las actividades de inactividad** (hora de Costa Rica, por SNTP):
    - ejercicio: martes, miércoles y jueves de 9:00 a 10:00; sábado y domingo de 8:00 a 11:00;
    - leyendo: todos los días de 8:00 a 20:00;
-   - guitarra: sábado y domingo de 10:00 a 17:00, sonido al 25 %;
-   - videojuego: lunes a viernes de 11:00 a 16:00, sonido 8 bits al 25 %.
+   - guitarra: sábado y domingo de 10:00 a 17:00, sonido al 15 %;
+   - videojuego: lunes a viernes de 11:00 a 16:00, sonido 8 bits al 15 %.
    Nunca repite la misma actividad dos veces seguidas si hay otra disponible. Fuera
    de horario (de noche) no hace actividades: solo mira alrededor hasta dormirse.
    Pedidas por voz (show_face) salen a cualquier hora y suenan a volumen normal.
-   En la PC el 25 % son `guitarra_suave.wav` y `videojuego_suave.wav`; en la placa,
+   En la PC el 15 % son `guitarra_suave.wav` y `videojuego_suave.wav`; en la placa,
    bajar la ganancia del códec mientras suenen. El loop del videojuego es propio:
    `inactividad/videojuego.ogg`, fuente en `fuentes_minimal/audio_videojuego.py`.
 
