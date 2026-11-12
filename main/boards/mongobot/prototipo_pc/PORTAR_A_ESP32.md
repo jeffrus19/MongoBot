@@ -130,6 +130,13 @@ respetar estas reglas, porque cada una corrigió un error real:
    En LVGL: pantalla en orientación vertical (rotación del ILI9341/ST7789) y cada
    animación desplazada según ese JSON. `generar_todo.py` regenera las 69 de una vez.
 
+19. **Clima siempre con animación.** Si lo que dijiste es una pregunta del clima
+   (clima, llover, lluvia, temperatura, pronóstico, nublado, "qué tiempo hace"...),
+   MongoBot busca él mismo el clima real y pone sol, nube o lluvia, aunque la IA
+   conteste sin usar la herramienta. Toma la ciudad de "en <ciudad>" (si no existe, San
+   José) y "mañana" usa el pronóstico del día siguiente. Regex `PREGUNTA_CLIMA` en
+   weather/service.py.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

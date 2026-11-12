@@ -127,10 +127,10 @@ index 556cb6e..2be8e25 100644
 -    logger.info("已注册 %d 个天气 MCP 工具（register_weather_tools, mock）", len(tools))
 +    logger.info("Registradas %d herramientas MCP de clima (Open-Meteo)", len(tools))
 diff --git a/src/mcp/tools/weather/service.py b/src/mcp/tools/weather/service.py
-index c708f93..b869b57 100644
+index c708f93..99497bd 100644
 --- a/src/mcp/tools/weather/service.py
 +++ b/src/mcp/tools/weather/service.py
-@@ -1,37 +1,135 @@
+@@ -1,37 +1,176 @@
 -"""天气数据（当前 mock；待接真 API）."""
 +"""Clima real con Open-Meteo (gratis, sin clave). Reemplaza los datos de prueba
 +que traía py-xiaozhi (siempre "Pekín, 25 °C, despejado").
@@ -143,6 +143,7 @@ index c708f93..b869b57 100644
  
 +import asyncio
  import json
++import re
 +import urllib.parse
 +import urllib.request
  from typing import Any
@@ -182,7 +183,18 @@ index c708f93..b869b57 100644
 +    req = urllib.request.Request(full, headers={"User-Agent": "MongoBot/1.0 (py-xiaozhi)"})
 +    with urllib.request.urlopen(req, timeout=timeout) as r:
 +        return json.loads(r.read().decode("utf-8"))
-+
+ 
+-def get_weather_payload(args: dict[str, Any]) -> str:
+-    city = args.get("city", "北京")
+-    logger.info(f"[WeatherTool] 获取 {city} 的当前天气")
+-    # TODO: 实际项目中应调用天气API
+-    weather_data = {
+-        "city": city,
+-        "temperature": 25,
+-        "condition": "晴朗",
+-        "humidity": 45,
+-        "wind": "东北风 3级",
+-        "aqi": 52,
 +
 +def _ubicar(ciudad: str) -> dict:
 +    """Nombre de ciudad -> {nombre, pais, lat, lon}. Prueba también sin el país."""
@@ -204,18 +216,7 @@ index c708f93..b869b57 100644
 +        r = res[0]
 +        return {"nombre": r.get("name"), "pais": r.get("country"), "lat": r["latitude"], "lon": r["longitude"]}
 +    raise LookupError(f"no encontré la ciudad '{nombre}'")
- 
--def get_weather_payload(args: dict[str, Any]) -> str:
--    city = args.get("city", "北京")
--    logger.info(f"[WeatherTool] 获取 {city} 的当前天气")
--    # TODO: 实际项目中应调用天气API
--    weather_data = {
--        "city": city,
--        "temperature": 25,
--        "condition": "晴朗",
--        "humidity": 45,
--        "wind": "东北风 3级",
--        "aqi": 52,
++
 +
 +def _clima(ciudad: str, dias: int = 0) -> dict:
 +    lugar = _ubicar(ciudad)
@@ -250,6 +251,46 @@ index c708f93..b869b57 100644
 +        mongo_caras.mostrar(cara, 60, hasta_respuesta=True)   # acompaña toda la respuesta
 +    except Exception as e:                                       # noqa: BLE001
 +        logger.debug(f"[WeatherTool] sin cara: {e}")
++
++
++# Preguntas del clima: MongoBot pone la animación aunque la IA conteste sin usar la
++# herramienta (por ejemplo, si responde de memoria o con lo que ya había dicho).
++PREGUNTA_CLIMA = re.compile(
++    r"clima|llov|lluev|lluvi|temperatura|pron[oó]stico|nublad|soleado|aguacero|qu[eé] tiempo (hace|va)|"
++    r"hace (fr[ií]o|calor) (afuera|hoy|ma[ñn]ana)", re.IGNORECASE)
++_EN_CIUDAD = re.compile(r"\ben\s+([A-Za-zÁÉÍÓÚÑáéíóúñü][A-Za-zÁÉÍÓÚÑáéíóúñü ]{2,40})", re.IGNORECASE)
++_SOBRA = re.compile(r"\s+(hoy|ma[ñn]ana|ahora|esta (tarde|noche|semana)|este fin de semana|el fin de semana)\b.*$",
++                    re.IGNORECASE)
++
++
++def ciudad_de(texto: str) -> str | None:
++    """'¿va a llover en Heredia mañana?' -> 'Heredia'."""
++    m = _EN_CIUDAD.search(texto or "")
++    if not m:
++        return None
++    ciudad = _SOBRA.sub("", m.group(1)).strip(" ?¿!.,")
++    return ciudad if ciudad and ciudad.lower() not in ("la casa", "casa", "el día", "la tarde", "la noche") else None
++
++
++async def mostrar_clima_de(texto: str) -> bool:
++    """Si el texto pregunta por el clima, busca el clima real y pone su animación."""
++    if not PREGUNTA_CLIMA.search(texto or ""):
++        return False
++    manana = re.search(r"ma[ñn]ana", texto, re.IGNORECASE) is not None
++    for ciudad in filter(None, (ciudad_de(texto), CIUDAD_POR_DEFECTO)):
++        try:
++            r = await asyncio.to_thread(_clima, ciudad, 2 if manana else 0)
++        except Exception as e:                                   # noqa: BLE001
++            logger.debug(f"[WeatherTool] clima automático de {ciudad}: {e}")
++            continue
++        if manana and r["datos"].get("daily", {}).get("weather_code"):
++            codigo = r["datos"]["daily"]["weather_code"][-1]
++        else:
++            codigo = r["datos"].get("current", {}).get("weather_code", 3)
++        _mostrar_cara(describir_codigo(codigo)[1])
++        logger.info(f"[WeatherTool] pregunta del clima: animación de {ciudad}{' (mañana)' if manana else ''}")
++        return True
++    return False
 +
 +
 +async def get_weather_payload(args: dict[str, Any]) -> str:

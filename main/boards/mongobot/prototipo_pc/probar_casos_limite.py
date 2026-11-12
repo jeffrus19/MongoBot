@@ -303,6 +303,28 @@ async def main():
     pan, pres = nuevo(); pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type": "stt", "text": "qué hay de actualidad"})
     ver("'actualidad' no es actualizar", pan.cara, "pensando")
     mongo_caras.soltar()
+    print("22. Pregunta del clima sin que la IA use la herramienta")
+    from src.mcp.tools.weather import service as w
+    pedidos = []
+    def falso(ciudad, dias=0):
+        pedidos.append((ciudad, dias))
+        if ciudad == "Xyzzy":
+            raise RuntimeError("no existe")
+        return {"lugar": {"nombre": ciudad, "pais": "CR"},
+                "datos": {"current": {"weather_code": 63}, "daily": {"weather_code": [0, 1]}}}
+    w._clima = falso
+    for frase, cara_esp, ciudad_esp in (("¿cómo está el clima?", "clima_lluvia", w.CIUDAD_POR_DEFECTO),
+                                        ("¿va a llover en Heredia mañana?", "clima_sol", "Heredia"),
+                                        ("¿llueve en Xyzzy?", "clima_lluvia", w.CIUDAD_POR_DEFECTO)):
+        pan, pres = nuevo()
+        pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type": "stt", "text": frase})
+        await asyncio.sleep(0.05)
+        pres.show_device_state(S.SPEAKING); pres.show_protocol_message({"type": "llm", "emotion": "happy"})
+        ver(f"{frase!r}: animación", (pan.cara, pedidos[-1][0]), (cara_esp, ciudad_esp))
+        pres.show_device_state(S.IDLE); ver("al terminar se suelta", pan.cara, "neutral")
+    pan, pres = nuevo(); pres.show_device_state(S.LISTENING); pres.show_protocol_message({"type": "stt", "text": "cuánto tiempo falta"})
+    await asyncio.sleep(0.05); ver("'cuánto tiempo falta' no es clima", pan.cara, "pensando")
+    mongo_caras.soltar()
     print(f"\n{ok_total} bien, {fallas} fallas")
 
 asyncio.run(main())

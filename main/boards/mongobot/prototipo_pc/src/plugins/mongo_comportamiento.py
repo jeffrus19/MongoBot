@@ -310,6 +310,20 @@ class Comportamiento:
             return
         if self.estado != "speaking":
             self._mostrar("pensando")
+        self._clima_si_pregunta(texto)
+
+    def _clima_si_pregunta(self, texto: str) -> None:
+        """Pregunta del clima: pone la animación del clima real, la use o no la IA."""
+        try:
+            from src.mcp.tools.weather import service
+
+            if not service.PREGUNTA_CLIMA.search(texto or ""):
+                return
+            asyncio.get_running_loop().create_task(service.mostrar_clima_de(texto))
+        except RuntimeError:
+            pass                                  # sin loop (pruebas sin asyncio)
+        except Exception as e:                                   # noqa: BLE001
+            logger.debug(f"[Comportamiento] clima automático: {e}")
 
     def al_emocion(self, emocion: str) -> None:
         """Emoción de la respuesta (mensaje llm)."""

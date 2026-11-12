@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import urllib.parse
 import urllib.request
 from typing import Any
@@ -92,6 +93,46 @@ def _mostrar_cara(cara: str) -> None:
         mongo_caras.mostrar(cara, 60, hasta_respuesta=True)   # acompaña toda la respuesta
     except Exception as e:                                       # noqa: BLE001
         logger.debug(f"[WeatherTool] sin cara: {e}")
+
+
+# Preguntas del clima: MongoBot pone la animación aunque la IA conteste sin usar la
+# herramienta (por ejemplo, si responde de memoria o con lo que ya había dicho).
+PREGUNTA_CLIMA = re.compile(
+    r"clima|llov|lluev|lluvi|temperatura|pron[oó]stico|nublad|soleado|aguacero|qu[eé] tiempo (hace|va)|"
+    r"hace (fr[ií]o|calor) (afuera|hoy|ma[ñn]ana)", re.IGNORECASE)
+_EN_CIUDAD = re.compile(r"\ben\s+([A-Za-zÁÉÍÓÚÑáéíóúñü][A-Za-zÁÉÍÓÚÑáéíóúñü ]{2,40})", re.IGNORECASE)
+_SOBRA = re.compile(r"\s+(hoy|ma[ñn]ana|ahora|esta (tarde|noche|semana)|este fin de semana|el fin de semana)\b.*$",
+                    re.IGNORECASE)
+
+
+def ciudad_de(texto: str) -> str | None:
+    """'¿va a llover en Heredia mañana?' -> 'Heredia'."""
+    m = _EN_CIUDAD.search(texto or "")
+    if not m:
+        return None
+    ciudad = _SOBRA.sub("", m.group(1)).strip(" ?¿!.,")
+    return ciudad if ciudad and ciudad.lower() not in ("la casa", "casa", "el día", "la tarde", "la noche") else None
+
+
+async def mostrar_clima_de(texto: str) -> bool:
+    """Si el texto pregunta por el clima, busca el clima real y pone su animación."""
+    if not PREGUNTA_CLIMA.search(texto or ""):
+        return False
+    manana = re.search(r"ma[ñn]ana", texto, re.IGNORECASE) is not None
+    for ciudad in filter(None, (ciudad_de(texto), CIUDAD_POR_DEFECTO)):
+        try:
+            r = await asyncio.to_thread(_clima, ciudad, 2 if manana else 0)
+        except Exception as e:                                   # noqa: BLE001
+            logger.debug(f"[WeatherTool] clima automático de {ciudad}: {e}")
+            continue
+        if manana and r["datos"].get("daily", {}).get("weather_code"):
+            codigo = r["datos"]["daily"]["weather_code"][-1]
+        else:
+            codigo = r["datos"].get("current", {}).get("weather_code", 3)
+        _mostrar_cara(describir_codigo(codigo)[1])
+        logger.info(f"[WeatherTool] pregunta del clima: animación de {ciudad}{' (mañana)' if manana else ''}")
+        return True
+    return False
 
 
 async def get_weather_payload(args: dict[str, Any]) -> str:
