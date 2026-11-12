@@ -138,9 +138,10 @@ def bombillo(L, x, y, k, prendido):
 
 
 def a_eureka(L, t):
-    """Piensa mirando arriba y ¡zas!: se prende el bombillo, salta y abre los ojos."""
+    """Piensa mirando arriba y ¡zas!: se prende el bombillo, salta y abre los ojos.
+    Al final el bombillo se apaga y vuelve a pensar, para cerrar el bucle."""
     L.C = (255, 230, 90)
-    zas = 0.7
+    zas, vuelve = 0.7, 1.9
     if t < zas:
         c = cara(L, cy=138, lx=0.25, ly=-0.5)
         ojos(L, c, h=24)
@@ -149,11 +150,17 @@ def a_eureka(L, t):
         return
     u = t - zas
     salto = math.sin(math.pi * min(1, u / 0.35)) if u < 0.35 else 0
-    c = cara(L, cy=138 - 12 * salto, sx=1 - 0.05 * salto, sy=1 + 0.07 * salto, lx=0.0, ly=-0.15 * (1 - suave(u / 0.5)))
+    f = suave((t - vuelve) / 0.5)                          # 0 -> 1 volviendo a pensar
+    lx = 0.25 * f
+    ly = -0.15 * (1 - suave(u / 0.5)) * (1 - f) - 0.5 * f
+    c = cara(L, cy=138 - 12 * salto, sx=1 - 0.05 * salto, sy=1 + 0.07 * salto, lx=lx, ly=ly)
     k = 1.25 if u < 0.8 else 1.25 - 0.15 * suave((u - 0.8) / 0.3)
-    ojos(L, c, w=18 * k, h=30 * k)
+    k = k + (1.0 - k) * f
+    alto = 30 * k + (24 - 30 * k) * f
+    ojos(L, c, w=18 * k, h=alto)
     L.cara = None
-    bombillo(L, 160, 30 - 6 * salto, 1.0 * (rebote(u / 0.25) if u < 0.25 else 1.0), True)
+    escala = 1.0 * (rebote(u / 0.25) if u < 0.25 else 1.0)
+    bombillo(L, 160, 30 - 6 * salto, escala, f < 0.5)
 
 
 def a_picaro(L, t):
@@ -215,21 +222,22 @@ def a_orgulloso(L, t):
 
 
 def a_curioso(L, t):
-    """Ladea la cabeza, se le agranda un ojo y le sale un signo de pregunta chiquito."""
+    """Ladea la cabeza de un lado al otro con un vaivén suave; se le agranda el ojo del
+    lado al que se inclina y le sale un signo de pregunta chiquito."""
     L.C = (90, 210, 230)
-    lado_t = 1 if t < 1.2 else -1
-    inclina = 12 * lado_t * suave(min(t % 1.2, 0.4) / 0.4)
-    L.rot = math.radians(inclina)
-    c = cara(L, lx=0.25 * lado_t, ly=-0.1)
+    vaiven = math.sin(2 * math.pi * t / 2.4)               # -1..1, cierra el bucle
+    L.rot = math.radians(12 * vaiven)
+    lado_t = 1 if vaiven >= 0 else -1
+    c = cara(L, lx=0.25 * vaiven, ly=-0.1)
     for lado in (-1, 1):
         x, y = c.ojo(lado)
-        k = 1.25 if lado == lado_t else 0.85
+        k = 1 + 0.22 * vaiven * lado
         mm.ojo_rect(L, c, x, y, 18 * k, 30 * k * parpadeos(t, (0.9,)))
     L.cara = None
     L.rot = 0
-    u = (t % 1.2) / 1.2
-    s = rebote(u / 0.3) if u < 0.3 else 1.0
-    mm.signo_pregunta(L, c.cx + lado_t * (c.rx + 18), c.cy - c.ry + 14, 0.75 * s, L.C)
+    s = max(0.0, (abs(vaiven) - 0.55) / 0.45)
+    if s > 0.02:
+        mm.signo_pregunta(L, c.cx + lado_t * (c.rx + 18), c.cy - c.ry + 14, 0.75 * rebote(s), L.C)
 
 
 def a_aburrido(L, t):
@@ -335,37 +343,44 @@ def sobre(L, x, y, s, abierto=0.0):
 
 
 def a_mensaje(L, t):
-    """Mensaje nuevo: un sobrecito llega volando con estela, rebota y le sale el aviso."""
+    """Mensaje nuevo: un sobrecito llega volando con estela, rebota y le sale el aviso.
+    Al final se achica y desaparece, y la mirada vuelve a donde entra el siguiente."""
     col = (90, 180, 240)
     L.C = col
-    llega = 0.9
+    llega, se_va = 0.9, 1.9
+    f = suave((t - se_va) / 0.5)                           # 0 -> 1 desapareciendo
     if t < llega:
         u = suave(t / llega)
         x = -30 + (244 + 30) * u
         y = 60 + 110 * (1 - (2 * u - 1) ** 2) * -0.6 + 110 * u
         s = 0.8 + 0.3 * u
     else:
-        x, y, s = 244, 170, 1.1
+        x, y, s = 244, 170, 1.1 * (1 - f)
         y -= 10 * abs(math.sin(math.pi * min(1, (t - llega) / 0.3))) * (1 if t - llega < 0.3 else 0)
-    c = cara(L, cx=140, cy=118, lx=max(-0.6, min(0.6, (x - 140) / 180)), ly=max(-0.4, min(0.5, (y - 118) / 140)))
-    if t > llega + 0.2:
-        k = 1.2
-        ojos(L, c, w=18 * k, h=30 * k)
-    else:
-        ojos(L, c)
+    lx_obj = max(-0.6, min(0.6, (x - 140) / 180))
+    ly_obj = max(-0.4, min(0.5, (y - 118) / 140))
+    lx = lx_obj + (-0.6 - lx_obj) * f                      # vuelve a mirar por donde entra
+    ly = ly_obj + (-0.41 - ly_obj) * f
+    c = cara(L, cx=140, cy=118, lx=lx, ly=ly)
+    k = 1.2 if t > llega + 0.2 else 1.0
+    k = k + (1.0 - k) * f
+    ojos(L, c, w=18 * k, h=30 * k)
     L.cara = None
     if t < llega:                                           # estela
-        for k in range(5):
-            uu = suave(max(0, t - 0.05 * (k + 1)) / llega)
+        for i in range(5):
+            uu = suave(max(0, t - 0.05 * (i + 1)) / llega)
             xx = -30 + 274 * uu
             yy = 60 + 110 * (1 - (2 * uu - 1) ** 2) * -0.6 + 110 * uu
-            g = int(160 * (1 - k / 5))
-            L.circulo(xx, yy, 4 - k * 0.6, (g, g, g))
-    sobre(L, x, y, s)
-    if t > llega + 0.15:                                    # globito con el aviso
-        k = rebote((t - llega - 0.15) / 0.3) if t - llega - 0.15 < 0.3 else 1.0
-        L.circulo(x + 22 * s, y - 16 * s, 9 * k, col)
-        L.linea([(x + 22 * s, y - 21 * s * k), (x + 22 * s, y - 13 * s * k)], 3 * k, ARO)
+            g = int(160 * (1 - i / 5))
+            L.circulo(xx, yy, 4 - i * 0.6, (g, g, g))
+    if s > 0.05:
+        sobre(L, x, y, s)
+    if t > llega + 0.15 and f < 0.95:                       # globito con el aviso
+        k2 = rebote((t - llega - 0.15) / 0.3) if t - llega - 0.15 < 0.3 else 1.0
+        k2 *= (1 - f)
+        L.circulo(x + 22 * 1.1, y - 16 * 1.1, 9 * k2, col)
+        if k2 > 0.3:
+            L.linea([(x + 24.2, y - 17.6 - 5 * k2), (x + 24.2, y - 17.6 + 3 * k2)], 3 * k2, ARO)
 
 
 # ---------------------------------------------------------------- estados de la placa

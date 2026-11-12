@@ -492,7 +492,8 @@ def e_embarrassed(L, t):
 
 
 def e_surprised(L, t):
-    sube = ease(t / 0.25) - 0.3 * ease((t - 0.25) / 0.3)
+    # sube de golpe, se acomoda y al final vuelve abajo para cerrar el bucle
+    sube = ease(t / 0.25) - 0.3 * ease((t - 0.25) / 0.3) - 0.7 * ease((t - 1.9) / 0.5)
     c = Cara(0.96, 1.06, dy=-6 * sube)
     cabeza(L, c)
     for lado in (-1, 1):

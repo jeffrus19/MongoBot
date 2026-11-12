@@ -85,6 +85,7 @@ class Comportamiento:
         self._ultima_actividad: str | None = None
         self._hasta_saludo = 0.0
         self._sonando_mio = False      # la guitarra la encendió esta capa (no show_face)
+        self._musica = False           # está sonando una canción del reproductor
 
     # ------------------------------------------------------------ utilidades
 
@@ -110,6 +111,22 @@ class Comportamiento:
             self._sonando_mio = encender
         except Exception:                                        # noqa: BLE001
             pass
+
+    def _soltar_cara_pedida(self) -> None:
+        """Suelta la cara de show_face, salvo una alarma sonando (se apaga al contestarle)."""
+        from src.plugins import mongo_alarmas, mongo_caras
+
+        if mongo_caras.bloqueada() and mongo_alarmas._sonando is None:
+            mongo_caras.soltar()
+
+    def _existe(self, cara: str) -> bool:
+        try:
+            from src.plugins import mongo_caras
+
+            disponibles = mongo_caras.caras_disponibles()
+            return not disponibles or cara in disponibles
+        except Exception:                                        # noqa: BLE001
+            return True
 
     def _cara_reposo(self) -> str:
         hoy = self._hoy()
@@ -146,15 +163,14 @@ class Comportamiento:
             estaba_dormido = self._contactar()
             if anterior != "listening":
                 self._emocion_turno = None
-                # empezás a hablarle: se suelta una cara pedida (p. ej. guitarra 40 s),
-                # salvo una alarma sonando, que se apaga cuando le contestás
-                from src.plugins import mongo_alarmas, mongo_caras
+            if anterior == "idle":
+                # lo llamás desde el reposo: se suelta una cara pedida (p. ej. guitarra 40 s).
+                # Si viene de hablar (modo automático) la cara sigue hasta que le hablés.
+                self._soltar_cara_pedida()
+            from src.plugins import mongo_caras
 
-                if mongo_caras.bloqueada() and mongo_alarmas._sonando is None:
-                    mongo_caras.soltar()
-            if estaba_dormido:
-                from src.plugins import mongo_caras
-
+            if estaba_dormido and not mongo_caras.bloqueada():
+                # una alarma que suena mientras duerme no se tapa con el despertar
                 mongo_caras.mostrar("despertar", DESPERTAR)
                 self.cara = "despertar"
             self._mostrar("conversa_escucha")
@@ -165,7 +181,7 @@ class Comportamiento:
         elif estado == "idle":
             self._contactar()
             self._emocion_turno = None
-            self._mostrar("sin_conexion" if self._sin_red else self._cara_reposo())
+            self._mostrar("sin_conexion" if self._sin_red else ("musica" if self._musica else self._cara_reposo()))
 
     def al_texto_usuario(self, texto: str) -> None:
         """El servidor transcribió lo que dijiste (stt): piensa mientras responde."""
@@ -174,6 +190,7 @@ class Comportamiento:
         if mongo_alarmas.es_aviso_propio(texto):
             return
         self._contactar()
+        self._soltar_cara_pedida()
         if self.estado != "speaking":
             self._mostrar("pensando")
 
@@ -185,9 +202,28 @@ class Comportamiento:
             self._enojos = [t for t in self._enojos if ahora - t < ENOJO_VENTANA] + [ahora]
             if len(self._enojos) >= ENOJO_VECES:
                 e = "furioso"
+        if e not in ("", "neutral", "furioso") and not self._existe(e):
+            logger.warning(f"[Comportamiento] emoción sin animación: {e}")
+            e = ""
         self._emocion_turno = None if e in ("", "neutral") else e
         self._contactar()
         self._mostrar(self._emocion_turno or "conversa_habla")
+
+    def al_tts(self, estado: str) -> None:
+        """Inicio/fin de la voz. En tiempo real nunca pasa a 'hablando': al terminar
+        de hablar vuelve a la cara de escucha."""
+        if (estado or "").lower() == "stop" and self.estado == "listening":
+            self._emocion_turno = None
+            self._mostrar("conversa_escucha")
+
+    def al_musica(self, estado: str) -> None:
+        """Estado del reproductor: playing / paused / stopped / completed / error."""
+        sonando = (estado or "").lower() == "playing"
+        self._musica = sonando
+        if sonando:
+            self._contactar()
+        if self.estado == "idle":
+            self._mostrar("musica" if sonando else self._cara_reposo())
 
     def sin_conexion(self) -> None:
         self._sin_red = True
@@ -204,6 +240,13 @@ class Comportamiento:
             if self.estado == "idle" and self.cara == "saludo":
                 self._mostrar(self._cara_reposo())
         if self.estado != "idle" or self._sin_red or self._hasta_saludo:
+            return
+        if self.cara == "guitarra" and self._fase == "actividad" and not self._sonando_mio:
+            self._sonido_guitarra(True)       # una cara pedida tapó la guitarra; vuelve el sonido
+        if self._musica:                      # escuchando música no se aburre
+            self._contacto = ahora
+            if self.cara != "musica":
+                self._mostrar("musica")
             return
         quieto = ahora - self._contacto
         if self._dormido:

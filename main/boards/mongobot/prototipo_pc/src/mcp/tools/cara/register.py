@@ -35,14 +35,42 @@ DESCRIPCION_CARAS = (
     "mirando, tacto_cosquillas, tacto_molesto."
 )
 
+# Nombres en español o con espacios que el modelo podría usar en vez del exacto.
+ALIAS = {
+    "feliz": "happy", "contento": "happy", "alegre": "happy", "riendo": "laughing", "risa": "laughing",
+    "chistoso": "funny", "triste": "sad", "llorando": "crying", "llorar": "crying", "enojado": "angry",
+    "bravo": "angry", "enamorado": "loving", "amor": "loving", "avergonzado": "embarrassed",
+    "sonrojado": "embarrassed", "sorprendido": "surprised", "asustado": "terrified", "miedo": "terrified",
+    "impactado": "shocked", "pensativo": "thinking", "guino": "winking", "guiño": "winking",
+    "relajado": "relaxed", "delicioso": "delicious", "beso": "kissy", "seguro": "confident",
+    "dormido": "sleepy", "sueno": "sleepy", "sueño": "sleepy", "tonto": "silly", "confundido": "confused",
+    "emocionado": "excited", "creido": "presumido", "creído": "presumido", "escéptico": "esceptico",
+    "pícaro": "picaro", "año nuevo": "anio_nuevo", "ano nuevo": "anio_nuevo", "año_nuevo": "anio_nuevo",
+    "sol": "clima_sol", "soleado": "clima_sol", "nublado": "clima_nube", "lluvia": "clima_lluvia",
+    "musica": "musica", "música": "musica", "hola": "saludo", "rodar ojos": "rodar_ojos",
+}
+
+
+def normalizar(nombre: str, disponibles: list[str]) -> str:
+    n = " ".join(str(nombre or "").strip().lower().split())
+    if n in disponibles:
+        return n
+    if n.replace(" ", "_") in disponibles:
+        return n.replace(" ", "_")
+    return ALIAS.get(n, n)
+
 
 def register_cara_tools(add_tool: Callable[[McpTool], None]) -> None:
     from src.plugins import mongo_caras
 
     async def show_face(args: dict[str, Any]) -> str:
-        nombre = str(args.get("face", "")).strip().lower()
-        segundos = int(args.get("seconds", 8))
         disponibles = mongo_caras.caras_disponibles()
+        nombre = normalizar(args.get("face", ""), disponibles)
+        try:
+            segundos = int(args.get("seconds", 8))
+        except (TypeError, ValueError):
+            segundos = 8
+        segundos = max(2, min(120, segundos))
         if nombre not in disponibles:
             logger.warning(f"[CaraTools] cara desconocida: {nombre}")
             return json.dumps({"ok": False, "error": f"unknown face '{nombre}'", "available": disponibles},
@@ -71,7 +99,7 @@ def register_cara_tools(add_tool: Callable[[McpTool], None]) -> None:
             ),
             PropertyList([
                 Property("face", PropertyType.STRING),
-                Property("seconds", PropertyType.INTEGER, default_value=8, min_value=2, max_value=120),
+                Property("seconds", PropertyType.INTEGER, default_value=8),
             ]),
             show_face,
         ),

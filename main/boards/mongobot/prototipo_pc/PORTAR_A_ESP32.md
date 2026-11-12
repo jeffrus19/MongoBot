@@ -14,7 +14,8 @@ de herramientas MCP**, así el texto de personalidad en xiaozhi.me no cambia.
 | `src/plugins/mongo_alarmas.py` | Alarmas, temporizadores y recordatorios: guarda, revisa cada segundo y, al cumplirse, hace que MongoBot grite "¡RING RING RING!" con su voz. |
 | `src/plugins/mongo_comportamiento.py` | Capa de comportamiento: elige la cara según la conversación (escuchando → cúpula, pensando, hablando → emoción o globitos, enojo repetido → furioso, despertar), el sistema (saludo, sin conexión) y la inactividad (aburrido, guitarra/ejercicio/videojuego/leyendo, llamando, bostezo, dormir, temporada). Es lógica pura con reloj inyectable: se pasa casi tal cual a C++. |
 | `src/mcp/tools/alarmas/register.py` | Herramientas `self.alarm.set_alarm`, `set_timer`, `set_reminder`, `list_alarms`, `cancel_alarm`, `stop_ringing`. |
-| Cambios en `ui_presenter.py`, `ui.py`, `mcp_server.py` | Conectan lo anterior (marcados con el comentario `# MongoBot`). |
+| `src/mcp/tools/weather/service.py` | Clima real con Open-Meteo (sin clave). Por defecto San José, Costa Rica; muestra clima_sol, clima_nube o clima_lluvia 10 s según el código WMO. |
+| Cambios en `ui_presenter.py`, `ui.py`, `mcp_server.py`, `volume/register.py`, `weather/register.py` | Conectan lo anterior (marcados con el comentario `# MongoBot`). |
 
 ## Equivalencias en el firmware (XiaoZhi, C++)
 
@@ -31,6 +32,46 @@ de herramientas MCP**, así el texto de personalidad en xiaozhi.me no cambia.
 | Se calla si el usuario habla (mensaje `stt`) | Igual: al recibir `stt` del servidor que no sea uno de los avisos propios (empiezan con ALARMA, TEMPORIZADOR o RECORDATORIO), o al tocar la pantalla. |
 | Alertas del servidor (`type=alert`) se muestran y se registran | Mostrarlas en la pantalla (el firmware ya trae `Alert`). |
 | Sonido de la guitarra con `winsound` | `guitarra.ogg` (Opus 24 kHz) en la partición de assets, reproducido por el códec de audio. |
+
+## Reglas que salieron de las pruebas (noviembre 2026)
+
+Las cuatro pruebas de `prototipo_pc` (`probar_animaciones`, `probar_comportamiento`,
+`probar_disparadores`, `probar_casos_limite`) pasan sin fallas. En la placa hay que
+respetar estas reglas, porque cada una corrigió un error real:
+
+1. **Cuándo se suelta una cara pedida (show_face).** Solo cuando lo llamás desde el
+   reposo (idle → escuchando) o cuando llega un `stt` tuyo. Si viene de hablar y
+   sigue escuchando solo (modo automático), la cara se queda: si no, "tocá guitarra"
+   duraba lo que dura la respuesta.
+2. **La alarma no se suelta nunca por eso.** Solo se apaga cuando le contestás
+   (`stt` que no sea un aviso propio) o al tocar la pantalla.
+3. **Alarma mientras duerme.** No poner "despertar" si hay una cara con candado;
+   antes el despertar tapaba la alarma.
+4. **Emoción desconocida** (el servidor manda algo sin animación): usar
+   conversa_habla, no neutral.
+5. **Modo tiempo real** (no pasa por "hablando"): al llegar `tts stop` estando en
+   escucha, volver a conversa_escucha. Antes se quedaba con la emoción.
+6. **Guitarra de inactividad tapada** por otra cara (volumen, por ejemplo): cuando
+   se suelta, el tic vuelve a encender el sonido.
+7. **show_face tolerante:** mayúsculas, espacios y nombres en español
+   ("feliz", "enojado", "año nuevo") se traducen al nombre exacto; los segundos se
+   recortan a 2-120 en vez de rechazar la llamada.
+8. **Animaciones de una sola vez:** despertar y tacto_despertar no se repiten.
+
+### Matriz de disparadores (69 animaciones)
+
+- **Con disparador propio (45):** las 21 emociones del servidor, conversa_escucha,
+  conversa_habla, pensando, furioso, despertar, saludo, sin_conexion, aburrido,
+  mirando, llamando, guitarra, ejercicio, videojuego, leyendo, bostezo, sleepy,
+  navidad, anio_nuevo, musica, volumen, clima_sol/nube/lluvia, alarma,
+  temporizador, recordatorio.
+- **Solo en la placa:** conectando, configurar_wifi, actualizando,
+  tacto_cosquillas, tacto_molesto, tacto_despertar.
+- **Funciones futuras:** mensaje (Telegram), pomodoro_trabajo, pomodoro_descanso.
+- **Personalidad, solo por show_face** (las elige la IA según la descripción de la
+  herramienta): curioso, decepcionado, esceptico, eureka, excited, ignorando,
+  ofendido, orgulloso, picaro, presumido, rodar_ojos, smug, terrified.
+- **Sobra:** escuchando (la reemplazó conversa_escucha). neutral es el reposo.
 
 ## Orden sugerido al portar
 

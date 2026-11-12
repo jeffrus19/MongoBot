@@ -1,88 +1,291 @@
---- a/src/plugins/ui_presenter.py
-+++ b/src/plugins/ui_presenter.py
-@@ -30,10 +30,23 @@
-     }
+diff --git a/src/mcp/mcp_server.py b/src/mcp/mcp_server.py
+index 6d8c492..9432502 100644
+--- a/src/mcp/mcp_server.py
++++ b/src/mcp/mcp_server.py
+@@ -140,12 +140,17 @@ class McpServer:
+             register_music_tools(common_tools.append, music_player)
  
-     def __init__(self, viewport: Optional["ViewPort"] = None) -> None:
--        self._vp = viewport
-+        self._vp = None
-+        self.bind(viewport)
+         from src.mcp.tools.app import register_app_tools
++        from src.mcp.tools.cara import register_cara_tools
+         from src.mcp.tools.volume import register_volume_tools
+         from src.mcp.tools.weather import register_weather_tools
  
-     def bind(self, viewport: Optional["ViewPort"]) -> None:
-         self._vp = viewport
-+        # MongoBot: la herramienta MCP de caras pinta directo en la pantalla
-+        from src.plugins import mongo_caras
+         register_volume_tools(common_tools.append, volume_controller)
+         register_app_tools(common_tools.append)
+         register_weather_tools(common_tools.append)
++        register_cara_tools(common_tools.append)  # MongoBot: caras animadas
++        from src.mcp.tools.alarmas import register_alarma_tools
 +
-+        mongo_caras.conectar(self._poner_cara if viewport else None)
-+        # MongoBot: la capa de comportamiento elige la cara según la conversación
-+        from src.plugins import mongo_comportamiento
++        register_alarma_tools(common_tools.append)  # MongoBot: alarmas y recordatorios
+ 
+         preserved = [
+             tool for tool in self.tools
+diff --git a/src/mcp/tools/volume/register.py b/src/mcp/tools/volume/register.py
+index e394c1f..999bb12 100644
+--- a/src/mcp/tools/volume/register.py
++++ b/src/mcp/tools/volume/register.py
+@@ -50,6 +50,12 @@ def register_volume_tools(
+                 return False
+             await asyncio.to_thread(controller.set_volume, volume)
+             logger.info(f"[VolumeTools] 音量设置成功: {volume}")
++            try:  # MongoBot: cara de volumen un momento
++                from src.plugins import mongo_caras
 +
-+        self._mongo = mongo_comportamiento.crear(self.set_emotion, self.set_chat_text) if viewport else None
-+
-+    def _poner_cara(self, emotion: str) -> None:
-+        if self._vp:
-+            self._vp.set_emotion(emotion)
++                mongo_caras.mostrar("volumen", 3)
++            except Exception:
++                pass
+             return True
+         except KeyError:
+             logger.error("[VolumeTools] 缺少volume参数")
+diff --git a/src/mcp/tools/volume/windows.py b/src/mcp/tools/volume/windows.py
+index 537b0a3..8999e26 100644
+--- a/src/mcp/tools/volume/windows.py
++++ b/src/mcp/tools/volume/windows.py
+@@ -38,8 +38,14 @@ class WindowsVolumeBackend:
+             )
  
-     @property
-     def viewport(self) -> Optional["ViewPort"]:
-@@ -48,6 +61,13 @@
-             self._vp.set_music_line(text)
- 
-     def set_emotion(self, emotion: str) -> None:
-+        # MongoBot: si la IA pidió una cara con self.screen.show_face, se respeta
-+        # hasta que termine su tiempo; lo que llegue mientras tanto queda pendiente.
-+        from src.plugins import mongo_caras
-+
-+        if mongo_caras.bloqueada():
-+            mongo_caras.guardar_pendiente(emotion)
-+            return
-         if self._vp:
-             self._vp.set_emotion(emotion)
- 
-@@ -68,11 +88,16 @@
- 
-     def show_device_state(self, state) -> None:
-         if status_text := self.STATE_TEXT_MAP.get(state):
--            self.set_emotion("neutral")
-+            if getattr(self, "_mongo", None):
-+                self._mongo.al_estado(state)        # MongoBot: escuchando, hablando, reposo
+             devices = AudioUtilities.GetSpeakers()
+-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+-            self.volume_control = cast(interface, POINTER(IAudioEndpointVolume))
++            if hasattr(devices, "EndpointVolume"):
++                # pycaw reciente: GetSpeakers() devuelve un AudioDevice que ya
++                # expone la interfaz de volumen
++                self.volume_control = devices.EndpointVolume
 +            else:
-+                self.set_emotion("neutral")
-             self.set_status(status_text, connected=True)
++                # pycaw anterior: GetSpeakers() devuelve el IMMDevice crudo
++                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
++                self.volume_control = cast(interface, POINTER(IAudioEndpointVolume))
+             logger.debug("Windows音量控制初始化成功")
+         except Exception as e:
+             logger.error(f"Windows音量控制初始化失败: {e}", exc_info=True)
+diff --git a/src/mcp/tools/weather/register.py b/src/mcp/tools/weather/register.py
+index 556cb6e..869e09d 100644
+--- a/src/mcp/tools/weather/register.py
++++ b/src/mcp/tools/weather/register.py
+@@ -1,4 +1,4 @@
+-"""天气 MCP 工具注册（当前 mock，待接真 API）."""
++"""Herramientas MCP de clima (MongoBot: datos reales de Open-Meteo, antes eran de prueba)."""
  
-     def show_network_error(self) -> None:
-         self.set_status("未连接", connected=False)
-+        if getattr(self, "_mongo", None):
-+            self._mongo.sin_conexion()
+ from __future__ import annotations
  
-     def show_music_state(self, data) -> None:
-         try:
-@@ -109,6 +134,21 @@
-         if msg_type in ("tts", "stt"):
-             if text := message.get("text"):
-                 self.set_chat_text(text)
-+                if msg_type == "stt":
-+                    # MongoBot: si le hablás mientras grita la alarma, se calla
-+                    from src.plugins import mongo_alarmas
+@@ -7,7 +7,7 @@ from collections.abc import Callable
+ from src.logging import get_logger
+ from src.mcp.tooling import McpTool, Property, PropertyList, PropertyType
+ 
+-from .service import get_forecast_payload, get_weather_payload
++from .service import CIUDAD_POR_DEFECTO, get_forecast_payload, get_weather_payload
+ 
+ logger = get_logger()
+ 
+@@ -19,23 +19,26 @@ def register_weather_tools(add_tool: Callable[[McpTool], None]) -> None:
+         McpTool(
+             "get_weather",
+             (
+-                "获取指定城市的当前天气。"
+-                "参数: city - 城市名称（如：北京、上海、广州）"
++                "Get the real current weather of a city (Open-Meteo). Use for '¿cómo está el clima?', "
++                "'¿va a llover?', '¿qué temperatura hace?'. If the user names no city, leave the default "
++                f"({CIUDAD_POR_DEFECTO}). Shows a sun, cloud or rain face on MongoBot's screen.\n"
++                "Parameter: city - city name, optionally with country (e.g. 'Heredia', 'Madrid, España')."
+             ),
+             PropertyList(
+-                [Property("city", PropertyType.STRING, default_value="北京")]
++                [Property("city", PropertyType.STRING, default_value=CIUDAD_POR_DEFECTO)]
+             ),
+             get_weather_payload,
+         ),
+         McpTool(
+             "get_forecast",
+             (
+-                "获取指定城市的天气预报。"
+-                "参数: city - 城市名称, days - 预报天数(1-7天)"
++                "Get the real weather forecast of a city for 1-7 days (Open-Meteo), with rain probability. "
++                f"Default city: {CIUDAD_POR_DEFECTO}.\n"
++                "Parameters: city - city name, days - number of days (1-7)."
+             ),
+             PropertyList(
+                 [
+-                    Property("city", PropertyType.STRING, default_value="北京"),
++                    Property("city", PropertyType.STRING, default_value=CIUDAD_POR_DEFECTO),
+                     Property(
+                         "days",
+                         PropertyType.INTEGER,
+@@ -51,4 +54,4 @@ def register_weather_tools(add_tool: Callable[[McpTool], None]) -> None:
+ 
+     for tool in tools:
+         add_tool(tool)
+-    logger.info("已注册 %d 个天气 MCP 工具（register_weather_tools, mock）", len(tools))
++    logger.info("Registradas %d herramientas MCP de clima (Open-Meteo)", len(tools))
+diff --git a/src/mcp/tools/weather/service.py b/src/mcp/tools/weather/service.py
+index c708f93..1432762 100644
+--- a/src/mcp/tools/weather/service.py
++++ b/src/mcp/tools/weather/service.py
+@@ -1,37 +1,135 @@
+-"""天气数据（当前 mock；待接真 API）."""
++"""Clima real con Open-Meteo (gratis, sin clave). Reemplaza los datos de prueba
++que traía py-xiaozhi (siempre "Pekín, 25 °C, despejado").
 +
-+                    mongo_alarmas.usuario_hablo(text)
-+                    if getattr(self, "_mongo", None):
-+                        self._mongo.al_texto_usuario(text)   # pensando
-         elif msg_type == "llm":
-             if emotion := message.get("emotion"):
--                self.set_emotion(emotion)
-+                if getattr(self, "_mongo", None):
-+                    self._mongo.al_emocion(emotion)
-+                else:
-+                    self.set_emotion(emotion)
-+        elif msg_type == "alert":
-+            # MongoBot: el servidor manda avisos (errores, límites); mostrarlos
-+            logger.warning(f"[Servidor] alerta: {message}")
-+            texto = message.get("message") or message.get("status") or str(message)
-+            self.set_chat_text(f"Aviso del servidor: {texto}")
++MongoBot: además de devolver el clima, pone la cara de sol, nube o lluvia.
++Si no hay internet, devuelve un error claro en vez de inventar datos.
++"""
+ 
+ from __future__ import annotations
+ 
++import asyncio
+ import json
++import urllib.parse
++import urllib.request
+ from typing import Any
+ 
+ from src.logging import get_logger
+ 
+ logger = get_logger()
+ 
++CIUDAD_POR_DEFECTO = "San José, Costa Rica"
++_GEO = "https://geocoding-api.open-meteo.com/v1/search"
++_CLIMA = "https://api.open-meteo.com/v1/forecast"
++
++# códigos WMO de Open-Meteo -> (descripción, cara)
++_CODIGOS = {
++    0: ("despejado", "clima_sol"), 1: ("mayormente despejado", "clima_sol"),
++    2: ("parcialmente nublado", "clima_nube"), 3: ("nublado", "clima_nube"),
++    45: ("neblina", "clima_nube"), 48: ("neblina con escarcha", "clima_nube"),
++    51: ("llovizna débil", "clima_lluvia"), 53: ("llovizna", "clima_lluvia"), 55: ("llovizna fuerte", "clima_lluvia"),
++    56: ("llovizna helada", "clima_lluvia"), 57: ("llovizna helada fuerte", "clima_lluvia"),
++    61: ("lluvia débil", "clima_lluvia"), 63: ("lluvia", "clima_lluvia"), 65: ("lluvia fuerte", "clima_lluvia"),
++    66: ("lluvia helada", "clima_lluvia"), 67: ("lluvia helada fuerte", "clima_lluvia"),
++    71: ("nieve débil", "clima_nube"), 73: ("nieve", "clima_nube"), 75: ("nieve fuerte", "clima_nube"),
++    77: ("granizo fino", "clima_nube"),
++    80: ("aguaceros débiles", "clima_lluvia"), 81: ("aguaceros", "clima_lluvia"), 82: ("aguaceros fuertes", "clima_lluvia"),
++    85: ("chubascos de nieve", "clima_nube"), 86: ("chubascos de nieve fuertes", "clima_nube"),
++    95: ("tormenta eléctrica", "clima_lluvia"), 96: ("tormenta con granizo", "clima_lluvia"),
++    99: ("tormenta fuerte con granizo", "clima_lluvia"),
++}
++
++
++def describir_codigo(codigo: int) -> tuple[str, str]:
++    return _CODIGOS.get(int(codigo), ("variable", "clima_nube"))
++
++
++def _get_json(url: str, params: dict, timeout: float = 8.0) -> dict:
++    full = f"{url}?{urllib.parse.urlencode(params)}"
++    req = urllib.request.Request(full, headers={"User-Agent": "MongoBot/1.0 (py-xiaozhi)"})
++    with urllib.request.urlopen(req, timeout=timeout) as r:
++        return json.loads(r.read().decode("utf-8"))
++
++
++def _ubicar(ciudad: str) -> dict:
++    """Nombre de ciudad -> {nombre, pais, lat, lon}. Prueba también sin el país."""
++    nombre = ciudad.strip() or CIUDAD_POR_DEFECTO
++    intentos = [nombre]
++    if "," in nombre:
++        intentos.append(nombre.split(",")[0].strip())
++    for q in intentos:
++        datos = _get_json(_GEO, {"name": q, "count": 5, "language": "es", "format": "json"})
++        res = datos.get("results") or []
++        if not res:
++            continue
++        # si se mencionó Costa Rica (o no se dijo país), preferir resultados de CR
++        quiere_cr = "costa rica" in nombre.lower() or "," not in nombre
++        if quiere_cr:
++            cr = [r for r in res if r.get("country_code") == "CR"]
++            if cr:
++                res = cr
++        r = res[0]
++        return {"nombre": r.get("name"), "pais": r.get("country"), "lat": r["latitude"], "lon": r["longitude"]}
++    raise LookupError(f"no encontré la ciudad '{nombre}'")
+ 
+-def get_weather_payload(args: dict[str, Any]) -> str:
+-    city = args.get("city", "北京")
+-    logger.info(f"[WeatherTool] 获取 {city} 的当前天气")
+-    # TODO: 实际项目中应调用天气API
+-    weather_data = {
+-        "city": city,
+-        "temperature": 25,
+-        "condition": "晴朗",
+-        "humidity": 45,
+-        "wind": "东北风 3级",
+-        "aqi": 52,
++
++def _clima(ciudad: str, dias: int = 0) -> dict:
++    lugar = _ubicar(ciudad)
++    params = {
++        "latitude": lugar["lat"], "longitude": lugar["lon"], "timezone": "auto",
++        "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation",
+     }
+-    return json.dumps(weather_data, ensure_ascii=False)
+-
+-
+-def get_forecast_payload(args: dict[str, Any]) -> str:
+-    city = args.get("city", "北京")
+-    days = args.get("days", 3)
+-    logger.info(f"[WeatherTool] 获取 {city} 的 {days} 天天气预报")
+-    forecast = [
+-        {"date": "今天", "high": 28, "low": 18, "condition": "晴"},
+-        {"date": "明天", "high": 26, "low": 17, "condition": "多云"},
+-        {"date": "后天", "high": 24, "low": 15, "condition": "小雨"},
+-    ]
+-    return json.dumps({"city": city, "forecast": forecast[:days]}, ensure_ascii=False)
++    if dias:
++        params["daily"] = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
++        params["forecast_days"] = max(1, min(7, dias))
++    datos = _get_json(_CLIMA, params)
++    return {"lugar": lugar, "datos": datos}
++
++
++def _mostrar_cara(cara: str) -> None:
++    try:
++        from src.plugins import mongo_caras
++
++        mongo_caras.mostrar(cara, 10)
++    except Exception as e:                                       # noqa: BLE001
++        logger.debug(f"[WeatherTool] sin cara: {e}")
++
++
++async def get_weather_payload(args: dict[str, Any]) -> str:
++    ciudad = str(args.get("city") or CIUDAD_POR_DEFECTO)
++    logger.info(f"[WeatherTool] clima actual de {ciudad}")
++    try:
++        r = await asyncio.to_thread(_clima, ciudad)
++    except Exception as e:                                       # noqa: BLE001
++        logger.warning(f"[WeatherTool] no pude obtener el clima: {e}")
++        return json.dumps({"ok": False, "error": f"could not get the weather: {e}"}, ensure_ascii=False)
++    c = r["datos"].get("current", {})
++    desc, cara = describir_codigo(c.get("weather_code", 3))
++    _mostrar_cara(cara)
++    return json.dumps({
++        "ok": True, "city": r["lugar"]["nombre"], "country": r["lugar"]["pais"],
++        "condition": desc, "temperature_c": c.get("temperature_2m"), "feels_like_c": c.get("apparent_temperature"),
++        "humidity_pct": c.get("relative_humidity_2m"), "wind_kmh": c.get("wind_speed_10m"),
++        "precipitation_mm": c.get("precipitation"), "time": c.get("time"), "source": "Open-Meteo",
++    }, ensure_ascii=False)
++
++
++async def get_forecast_payload(args: dict[str, Any]) -> str:
++    ciudad = str(args.get("city") or CIUDAD_POR_DEFECTO)
++    dias = int(args.get("days", 3))
++    logger.info(f"[WeatherTool] pronóstico de {dias} días para {ciudad}")
++    try:
++        r = await asyncio.to_thread(_clima, ciudad, dias)
++    except Exception as e:                                       # noqa: BLE001
++        logger.warning(f"[WeatherTool] no pude obtener el pronóstico: {e}")
++        return json.dumps({"ok": False, "error": f"could not get the forecast: {e}"}, ensure_ascii=False)
++    d = r["datos"].get("daily", {})
++    dias_lista = []
++    for i, fecha in enumerate(d.get("time", [])):
++        desc, cara = describir_codigo(d["weather_code"][i])
++        dias_lista.append({"date": fecha, "condition": desc, "max_c": d["temperature_2m_max"][i],
++                           "min_c": d["temperature_2m_min"][i],
++                           "rain_probability_pct": (d.get("precipitation_probability_max") or [None] * 9)[i]})
++    if dias_lista:
++        _mostrar_cara(describir_codigo(d["weather_code"][0])[1])
++    return json.dumps({"ok": True, "city": r["lugar"]["nombre"], "country": r["lugar"]["pais"],
++                       "forecast": dias_lista, "source": "Open-Meteo"}, ensure_ascii=False)
+diff --git a/src/plugins/ui.py b/src/plugins/ui.py
+index 304b03a..3cac706 100644
 --- a/src/plugins/ui.py
 +++ b/src/plugins/ui.py
-@@ -41,6 +41,8 @@
+@@ -41,6 +41,8 @@ class UIPlugin(Plugin):
          self._stopping = False
          self._viewport_closed = False
          self._subscriptions = []
@@ -91,7 +294,7 @@
  
      async def setup(self, ctx: "PluginContext", cmd: "PluginCommands") -> None:
          await super().setup(ctx, cmd)
-@@ -72,6 +74,27 @@
+@@ -72,6 +74,27 @@ class UIPlugin(Plugin):
          if self._session:
              self._session.subscribe(bus)
  
@@ -119,7 +322,7 @@
          if self.viewport:
              self._viewport_task = self._cmd.spawn(
                  self._run_viewport(), name=f"ui:{self.mode}:start"
-@@ -96,6 +119,15 @@
+@@ -96,6 +119,15 @@ class UIPlugin(Plugin):
  
      async def stop(self) -> None:
          self._stopping = True
@@ -135,23 +338,101 @@
          self._presenter.bind(None)
          if self._session is not None:
              self._session.unsubscribe()
---- a/src/mcp/mcp_server.py
-+++ b/src/mcp/mcp_server.py
-@@ -140,12 +140,17 @@
-             register_music_tools(common_tools.append, music_player)
+diff --git a/src/plugins/ui_presenter.py b/src/plugins/ui_presenter.py
+index 1e30dea..df8fba3 100644
+--- a/src/plugins/ui_presenter.py
++++ b/src/plugins/ui_presenter.py
+@@ -30,10 +30,23 @@ class UiPresenter:
+     }
  
-         from src.mcp.tools.app import register_app_tools
-+        from src.mcp.tools.cara import register_cara_tools
-         from src.mcp.tools.volume import register_volume_tools
-         from src.mcp.tools.weather import register_weather_tools
+     def __init__(self, viewport: Optional["ViewPort"] = None) -> None:
+-        self._vp = viewport
++        self._vp = None
++        self.bind(viewport)
  
-         register_volume_tools(common_tools.append, volume_controller)
-         register_app_tools(common_tools.append)
-         register_weather_tools(common_tools.append)
-+        register_cara_tools(common_tools.append)  # MongoBot: caras animadas
-+        from src.mcp.tools.alarmas import register_alarma_tools
+     def bind(self, viewport: Optional["ViewPort"]) -> None:
+         self._vp = viewport
++        # MongoBot: la herramienta MCP de caras pinta directo en la pantalla
++        from src.plugins import mongo_caras
 +
-+        register_alarma_tools(common_tools.append)  # MongoBot: alarmas y recordatorios
++        mongo_caras.conectar(self._poner_cara if viewport else None)
++        # MongoBot: la capa de comportamiento elige la cara según la conversación
++        from src.plugins import mongo_comportamiento
++
++        self._mongo = mongo_comportamiento.crear(self.set_emotion, self.set_chat_text) if viewport else None
++
++    def _poner_cara(self, emotion: str) -> None:
++        if self._vp:
++            self._vp.set_emotion(emotion)
  
-         preserved = [
-             tool for tool in self.tools
+     @property
+     def viewport(self) -> Optional["ViewPort"]:
+@@ -48,6 +61,13 @@ class UiPresenter:
+             self._vp.set_music_line(text)
+ 
+     def set_emotion(self, emotion: str) -> None:
++        # MongoBot: si la IA pidió una cara con self.screen.show_face, se respeta
++        # hasta que termine su tiempo; lo que llegue mientras tanto queda pendiente.
++        from src.plugins import mongo_caras
++
++        if mongo_caras.bloqueada():
++            mongo_caras.guardar_pendiente(emotion)
++            return
+         if self._vp:
+             self._vp.set_emotion(emotion)
+ 
+@@ -68,11 +88,16 @@ class UiPresenter:
+ 
+     def show_device_state(self, state) -> None:
+         if status_text := self.STATE_TEXT_MAP.get(state):
+-            self.set_emotion("neutral")
++            if getattr(self, "_mongo", None):
++                self._mongo.al_estado(state)        # MongoBot: escuchando, hablando, reposo
++            else:
++                self.set_emotion("neutral")
+             self.set_status(status_text, connected=True)
+ 
+     def show_network_error(self) -> None:
+         self.set_status("未连接", connected=False)
++        if getattr(self, "_mongo", None):
++            self._mongo.sin_conexion()
+ 
+     def show_music_state(self, data) -> None:
+         try:
+@@ -82,6 +107,8 @@ class UiPresenter:
+                 logger.warning(f"收到非法的音乐状态数据: {type(data)}")
+                 return
+ 
++            if getattr(self, "_mongo", None):
++                self._mongo.al_musica(data.state)     # MongoBot: cara de música
+             template = self.MUSIC_STATE_TEXT.get(data.state)
+             if not template:
+                 return
+@@ -106,9 +133,26 @@ class UiPresenter:
+         if not isinstance(message, dict):
+             return
+         msg_type = message.get("type")
++        if msg_type == "tts" and getattr(self, "_mongo", None):
++            self._mongo.al_tts(message.get("state"))     # MongoBot: fin de la voz en tiempo real
+         if msg_type in ("tts", "stt"):
+             if text := message.get("text"):
+                 self.set_chat_text(text)
++                if msg_type == "stt":
++                    # MongoBot: si le hablás mientras grita la alarma, se calla
++                    from src.plugins import mongo_alarmas
++
++                    mongo_alarmas.usuario_hablo(text)
++                    if getattr(self, "_mongo", None):
++                        self._mongo.al_texto_usuario(text)   # pensando
+         elif msg_type == "llm":
+             if emotion := message.get("emotion"):
+-                self.set_emotion(emotion)
++                if getattr(self, "_mongo", None):
++                    self._mongo.al_emocion(emotion)
++                else:
++                    self.set_emotion(emotion)
++        elif msg_type == "alert":
++            # MongoBot: el servidor manda avisos (errores, límites); mostrarlos
++            logger.warning(f"[Servidor] alerta: {message}")
++            texto = message.get("message") or message.get("status") or str(message)
++            self.set_chat_text(f"Aviso del servidor: {texto}")

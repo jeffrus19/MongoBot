@@ -149,7 +149,7 @@ def wifi(L, x, y, niveles, color, apagado=(60, 60, 60), escala=1.0):
 def a_conectando(L, t):
     col = (90, 220, 255)
     L.C = col
-    c = cara(L, r=66, cy=150, lx=0.3 * math.sin(2 * math.pi * t / 2.4), ly=-0.4)
+    c = cara(L, r=66, cy=150, lx=0.3 * math.sin(2 * math.pi * t / 2.0), ly=-0.4)   # mismo largo que el bucle
     ojos(L, c, parp=parpadeos(t, (1.2,)))
     L.cara = None
     niveles = int((t / 0.4) % 5)                            # 0, 1, 2, 3, 4(=todo) y vuelve
@@ -590,6 +590,8 @@ def a_leyendo(L, t):
     libro(L, 208, 168, pasa)
 
 
+UNA_VEZ = {"despertar", "tacto_despertar"}      # cuentan una historia: se reproducen una vez
+
 ANIMS = [
     ("pensando", a_pensando, 2.4),
     ("despertar", a_despertar, 2.4),
@@ -628,7 +630,9 @@ def generar(salida):
         pal = fr[len(fr) // 2].quantize(colors=48, method=Image.Quantize.MEDIANCUT)
         q = [f.quantize(palette=pal, dither=Image.Dither.NONE) for f in fr]
         ruta = os.path.join(salida, f"{nombre}.gif")
-        q[0].save(ruta, save_all=True, append_images=q[1:], duration=int(1000 / FPS), loop=0, disposal=1, optimize=True)
+        repetir = {} if nombre in UNA_VEZ else {"loop": 0}      # las de una sola vez se quedan en la última imagen
+        q[0].save(ruta, save_all=True, append_images=q[1:], duration=int(1000 / FPS), disposal=1, optimize=True,
+                  **repetir)
         total += os.path.getsize(ruta)
     print(f"{len(ANIMS)} GIF, {total / 1024:.0f} KB en total")
 
