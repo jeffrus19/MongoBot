@@ -34,9 +34,9 @@ header{padding:28px 32px 8px} h1{margin:0;font-size:26px} header p{margin:6px 0 
 input{margin-top:14px;width:260px;padding:8px 12px;border-radius:8px;border:1px solid #333;background:#18181b;color:inherit;font:inherit}
 section{padding:10px 32px 18px} h2{font-size:18px;margin:18px 0 2px} h2 span{color:#777;font-weight:400;font-size:14px}
 section>p{margin:0 0 12px;color:#9a9aa2;font-size:13px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
 figure{margin:0;background:#151518;border:1px solid #232327;border-radius:12px;padding:10px;text-align:center}
-figure img{width:100%;aspect-ratio:4/3;object-fit:contain;border-radius:8px;background:#000}
+figure img{width:100%;aspect-ratio:3/4;object-fit:contain;border-radius:8px;background:#000}
 figcaption{margin-top:6px;font-family:ui-monospace,Consolas,monospace;font-size:13px;user-select:all}
 .oculto{display:none}
 """
