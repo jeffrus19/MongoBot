@@ -83,12 +83,18 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
     async def stop_ringing(args: dict[str, Any]) -> str:
         return _ok(stopped=al.detener())
 
+    al_sonar = ("IMPORTANT: when a message arrives that starts with 'ALARMA', 'TEMPORIZADOR' or "
+                "'RECORDATORIO' (optionally followed by 'OTRA VEZ' and a note), it is not the user talking: it is "
+                "one of these alarms going off. Then shout exactly '¡RING RING RING!' and add one short sentence "
+                "in your personality: wake the user up (ALARMA), say the time is up (TEMPORIZADOR) or remind "
+                "them of the note (RECORDATORIO). With 'OTRA VEZ', shout louder and more annoyed.\n")
     dias_ayuda = ("days: optional repeat. '' = only once, 'diario' = every day, 'lun-vie' = weekdays, "
                   "'fin de semana', or a list like 'lun,mie,vie'.")
     tools = [
         McpTool(
             "self.alarm.set_alarm",
             ("Set an alarm at a clock time (local time). When it rings, MongoBot shouts 'RING RING RING'.\n"
+             + al_sonar +
              "Use for: 'poneme una alarma a las 6:30', 'despertame a las 7', 'alarma de lunes a viernes a las 6'.\n"
              "Parameters:\n- time: 'HH:MM' 24h, or '6:30 am' / '7 pm'.\n- " + dias_ayuda + "\n"
              "- label: optional short note (e.g. 'gimnasio')."),
@@ -100,6 +106,7 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
         McpTool(
             "self.alarm.set_timer",
             ("Start a countdown timer. When it ends, MongoBot shouts 'RING RING RING'.\n"
+             + al_sonar +
              "Use for: 'temporizador de 10 minutos', 'avisame en 30 segundos', 'cuenta 5 minutos'.\n"
              "Parameters: minutes, seconds (at least one > 0), label (optional, e.g. 'arroz')."),
             PropertyList([Property("minutes", PropertyType.INTEGER, default_value=0, min_value=0, max_value=1440),
@@ -110,6 +117,7 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
         McpTool(
             "self.alarm.set_reminder",
             ("Set a reminder. At that moment MongoBot shouts 'RING RING RING' and says what to do.\n"
+             + al_sonar +
              "Use for: 'recordame a las 3 llamar al banco', 'en 20 minutos recordame sacar la ropa'.\n"
              "Parameters:\n- text: what to remind (required).\n- time: 'HH:MM' (use this OR in_minutes).\n"
              "- in_minutes: minutes from now.\n- " + dias_ayuda),

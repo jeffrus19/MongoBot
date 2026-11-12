@@ -35,7 +35,7 @@
          if self._vp:
              self._vp.set_emotion(emotion)
  
-@@ -109,6 +125,11 @@
+@@ -109,6 +125,16 @@
          if msg_type in ("tts", "stt"):
              if text := message.get("text"):
                  self.set_chat_text(text)
@@ -47,6 +47,11 @@
          elif msg_type == "llm":
              if emotion := message.get("emotion"):
                  self.set_emotion(emotion)
++        elif msg_type == "alert":
++            # MongoBot: el servidor manda avisos (errores, límites); mostrarlos
++            logger.warning(f"[Servidor] alerta: {message}")
++            texto = message.get("message") or message.get("status") or str(message)
++            self.set_chat_text(f"Aviso del servidor: {texto}")
 --- a/src/plugins/ui.py
 +++ b/src/plugins/ui.py
 @@ -41,6 +41,7 @@

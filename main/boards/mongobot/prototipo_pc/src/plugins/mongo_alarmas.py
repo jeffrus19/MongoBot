@@ -5,8 +5,10 @@ Las herramientas MCP (src/mcp/tools/alarmas) llaman a ``programar``, ``listar``,
 mandarle un texto al servidor (``conectar_envio``).
 
 Cuando llega la hora no suena un timbre: MongoBot grita "¡RING RING RING!" con su
-propia voz. Para eso se le manda al servidor un aviso como si fuera un mensaje,
-con la instrucción de gritarlo; la respuesta sale hablada con su personalidad.
+propia voz. Para eso se le manda al servidor un aviso corto como si fuera un
+mensaje ("ALARMA: gimnasio"); la descripción de las herramientas le dice al modelo
+que ante esos mensajes grite "¡RING RING RING!". El servidor rechaza los avisos
+largos (responde con una alerta), por eso van cortos.
 La cara cambia a alarma, temporizador o recordatorio.
 
 Si nadie la apaga, la alarma vuelve a gritar cada 30 s, hasta 3 veces. Se apaga
@@ -197,8 +199,8 @@ def detener() -> bool:
 
 
 def usuario_hablo(texto: str) -> None:
-    """Si el usuario le habla mientras grita, se calla."""
-    if _sonando and texto and MARCA not in texto:
+    """Si el usuario le habla mientras grita, se calla (los avisos propios no cuentan)."""
+    if _sonando and texto and not es_aviso_propio(texto):
         detener()
 
 
@@ -209,17 +211,24 @@ def conectar_envio(fn: Callable[[str], Awaitable[None]] | None) -> None:
 
 # ---------------------------------------------------------------- disparar
 
+PREFIJOS = {"alarma": "ALARMA", "temporizador": "TEMPORIZADOR", "recordatorio": "RECORDATORIO"}
+LARGO_MAX = 60     # el servidor rechaza (alerta) los avisos largos: se mandan cortos
+
+
 def _mensaje(it: dict, vez: int) -> str:
-    etiqueta = f" Es por: {it['texto']}." if it.get("texto") else ""
-    otra = " Es la segunda vez, gritá más fuerte." if vez == 2 else (" Última vez, gritá con todo." if vez >= 3 else "")
-    if it["tipo"] == "recordatorio":
-        return (f"{MARCA} Recordatorio que el usuario programó.{etiqueta} Empezá gritando exactamente "
-                f"'¡RING RING RING!' y después recordale en una frase corta, con tu personalidad, qué tiene que hacer.{otra}")
-    if it["tipo"] == "temporizador":
-        return (f"{MARCA} Se acabó el temporizador que el usuario puso.{etiqueta} Gritá exactamente "
-                f"'¡RING RING RING!' y decí en pocas palabras que ya se cumplió el tiempo.{otra}")
-    return (f"{MARCA} Sonó la alarma que el usuario programó.{etiqueta} Gritá exactamente "
-            f"'¡RING RING RING!' y después una frase corta para que se despierte o se levante, con tu personalidad.{otra}")
+    """Aviso corto, p. ej. 'ALARMA: gimnasio'. La instrucción de gritar
+    '¡RING RING RING!' está en la descripción de las herramientas self.alarm.*."""
+    prefijo = PREFIJOS.get(it["tipo"], "ALARMA")
+    if vez >= 2:
+        prefijo += " OTRA VEZ"
+    texto = (it.get("texto") or "").strip()
+    msg = f"{prefijo}: {texto}" if texto else prefijo
+    return msg[:LARGO_MAX]
+
+
+def es_aviso_propio(texto: str) -> bool:
+    t = (texto or "").strip().upper()
+    return any(t.startswith(p) for p in PREFIJOS.values())
 
 
 async def _gritar(it: dict, vez: int) -> None:

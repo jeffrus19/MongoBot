@@ -25,8 +25,9 @@ de herramientas MCP**, así el texto de personalidad en xiaozhi.me no cambia.
 | Archivo `mongo_alarmas.json` | NVS (la clase `Settings` del firmware). |
 | Hora de la PC | Hora por SNTP al conectarse al WiFi (zona horaria de Costa Rica, UTC-6, sin horario de verano). |
 | Revisión cada segundo (`asyncio`) | Un `esp_timer` o tarea de FreeRTOS que revisa una vez por segundo. |
-| Aviso al servidor con `UI_SEND_TEXT` para que grite "RING RING RING" | Mandar el aviso por el protocolo del firmware para que el servidor responda hablando. **Hay que verificar con la placa** cuál mensaje usar (por ejemplo, el de palabra de activación con un texto propio); si no se puede, de respaldo suena un pitido local. |
-| Se calla si el usuario habla (mensaje `stt`) | Igual: al recibir `stt` del servidor, o al tocar la pantalla. |
+| Aviso al servidor con `UI_SEND_TEXT` para que grite "RING RING RING" | En py-xiaozhi ese texto viaja como mensaje de palabra de activación (`listen` / `detect` con texto), igual que en el firmware (`SendWakeWordDetected`). **Probado:** el servidor solo acepta textos cortos; uno largo responde con `type=alert`. Por eso el aviso va corto (`ALARMA: gimnasio`, máx. 60 caracteres) y la instrucción de gritar está en la descripción de las herramientas `self.alarm.*`. En la placa: mismo mensaje y mismos avisos cortos. |
+| Se calla si el usuario habla (mensaje `stt`) | Igual: al recibir `stt` del servidor que no sea uno de los avisos propios (empiezan con ALARMA, TEMPORIZADOR o RECORDATORIO), o al tocar la pantalla. |
+| Alertas del servidor (`type=alert`) se muestran y se registran | Mostrarlas en la pantalla (el firmware ya trae `Alert`). |
 | Sonido de la guitarra con `winsound` | `guitarra.ogg` (Opus 24 kHz) en la partición de assets, reproducido por el códec de audio. |
 
 ## Orden sugerido al portar
