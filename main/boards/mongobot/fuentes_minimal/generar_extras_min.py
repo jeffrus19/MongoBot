@@ -552,28 +552,50 @@ def a_tacto_despertar(L, t):
 
 # ---------------------------------------------------------------- 11. leyendo
 
-TAPA = (165, 25, 32)        # libro todo rojo: tapas un poco más oscuras
-HOJA = (210, 42, 48)        # páginas
-HOJA_PASA = (232, 72, 76)
+TAPA = (165, 25, 32)        # libro todo rojo: la parte de abajo de las tapas, más oscura
+HOJA = (210, 42, 48)        # tapas
+HOJA_PASA = (232, 72, 76)   # lomo y páginas, un poco más claros
+LIBRO_ESCALA = 0.23         # el dibujo de referencia mide 640 px; el libro queda de ~118 de ancho
 
 
-def libro(L, x, y, hoja_u):
-    """Libro abierto todo rojo; hoja_u (0..1) pasa una página."""
-    for lado in (-1, 1):
-        tapa = [(x, y), (x + lado * 59, y - 10), (x + lado * 59, y + 50), (x, y + 59)]
-        L.poligono(tapa, TAPA)
-        hoja = [(x, y + 4), (x + lado * 53, y - 5), (x + lado * 53, y + 45), (x, y + 54)]
-        L.poligono(hoja, HOJA)
-    L.linea([(x, y + 4), (x, y + 54)], 2.0, (130, 18, 24))     # lomo
-    for lado in (-1, 1):                                       # bordes blancos
-        tapa = [(x, y), (x + lado * 59, y - 10), (x + lado * 59, y + 50), (x, y + 59)]
-        L.linea(tapa + [tapa[0]], 3.0, ARO)
-    if 0 < hoja_u < 1:
-        k = math.cos(math.pi * hoja_u)                          # 1 derecha -> -1 izquierda
-        alto = 8 * (1 - abs(k))
-        pts = [(x, y + 4), (x + 53 * k, y - 5 - alto), (x + 53 * k, y + 45 - alto), (x, y + 54)]
-        L.poligono(pts, HOJA_PASA)
-        L.linea(pts[1:3], 1.6, (150, 25, 30))
+def libro(L, x, y, hoja_u=0):
+    """Libro abierto todo rojo con bordes blancos, como el ícono de referencia: dos
+    tapas inclinadas, las páginas asomando arriba, el lomo al centro con la punta
+    redonda abajo y dos renglones en la tapa derecha. (x, y) es el centro del lomo
+    arriba, donde se juntan las tapas."""
+    def P(px, py):
+        return x + (px - 320) * LIBRO_ESCALA, y + (py - 195) * LIBRO_ESCALA
+
+    def curva(a, b, c, n=16):
+        return [P(*q) for q in mm.bezier([a, b, c], n)]
+
+    # páginas que asoman por arriba
+    izq = [P(88, 152), P(128, 98)] + curva((128, 98), (295, 112), (320, 200)) + [P(265, 196)]
+    der = [P(552, 152), P(512, 98)] + curva((512, 98), (345, 112), (320, 200)) + [P(375, 196)]
+    for pag in (izq, der):
+        L.poligono(pag, HOJA_PASA)
+    # tapas: rojas arriba y más oscuras abajo, con la curva del ícono
+    tapa_i = [P(65, 150), P(265, 195), P(265, 495), P(65, 430)]
+    tapa_d = [P(375, 195), P(575, 150), P(575, 430), P(375, 495)]
+    L.poligono(tapa_i, HOJA)
+    L.poligono(tapa_d, HOJA)
+    L.poligono(curva((68, 200), (110, 335), (265, 388)) + [P(265, 495), P(65, 430)], TAPA)
+    L.poligono(curva((375, 405), (470, 428), (575, 385)) + [P(575, 430), P(375, 495)], TAPA)
+    # lomo: claro arriba, rojo abajo, termina en punta redonda
+    arco = [P(320 + 55 * math.cos(a), 485 + 55 * math.sin(a)) for a in [math.pi * i / 16 for i in range(17)]]
+    L.poligono([P(265, 195), P(320, 210), P(375, 195), P(375, 400), P(265, 400)], HOJA_PASA)
+    L.poligono([P(265, 400), P(375, 400), P(375, 485)] + arco + [P(265, 485)], HOJA)
+    # bordes blancos
+    ancho = 3.0
+    for pag in (izq, der):
+        L.linea(pag[:-1], ancho, ARO)
+    for tapa in (tapa_i, tapa_d):
+        L.linea(tapa + [tapa[0]], ancho, ARO)
+    L.linea([P(265, 195), P(265, 485)] + arco + [P(375, 485), P(375, 195)], ancho, ARO)
+    L.linea([P(265, 195), P(320, 210), P(375, 195)], ancho, ARO)
+    # renglones en la tapa derecha
+    L.linea([P(437, 250), P(505, 234)], ancho, ARO)
+    L.linea([P(437, 318), P(505, 302)], ancho, ARO)
 
 
 def a_leyendo(L, t):
