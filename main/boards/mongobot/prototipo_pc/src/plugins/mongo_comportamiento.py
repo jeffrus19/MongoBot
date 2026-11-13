@@ -140,6 +140,7 @@ REVISAR_RED_CADA = 15      # segundos entre pruebas mientras está sin conexión
 # suele escribir el reconocimiento de voz.
 POMPI = re.compile(r"\b(pomp[iy]e?s?|pombi(s)?)\b", re.IGNORECASE)
 NOCHE = (22, 6)            # duerme de 22:00 a 6:00
+TRABAJO = (8, 11)          # de 8:00 a 11:00 el reposo es pomodoro_trabajo, todos los días
 DORMIR_NOCHE = 60          # de noche, segundos sin hablarle antes de dormirse
 RELLENO = ["leyendo", "videojuego"]   # de día, cuando no toca ninguna actividad programada
 VIDEOJUEGO_MAX_DIA = 3     # veces al día que juega solo (pedido por voz, sin límite)
@@ -306,6 +307,8 @@ class Comportamiento:
             return "navidad"
         if (hoy.month == 12 and hoy.day == 31) or (hoy.month == 1 and hoy.day == 1):
             return "anio_nuevo"
+        if TRABAJO[0] <= self._momento().hour < TRABAJO[1]:
+            return "pomodoro_trabajo"
         return "neutral"
 
     def _contactar(self) -> bool:

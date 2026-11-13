@@ -145,6 +145,7 @@ OJOS_AJUSTE = {
     "conversa_escucha": (1.977, -29, -66), "pensando": (1.133, 0, 10),
     "furioso": (1.133, -7, 64), "eureka": (1.027, -4, 78), "orgulloso": (1.074, -10, 57),
     "presumido": (0.945, 0, 24),
+    "angry": (1.508, -37, 66),
 }
 
 

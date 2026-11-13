@@ -189,6 +189,10 @@ respetar estas reglas, porque cada una corrigió un error real:
    conjunto quede centrado. En LVGL: no dibujar el aro y escalar los rasgos con el mismo
    factor.
 
+28. **Reposo de la mañana.** De 8:00 a 11:00, todos los días, la cara de reposo es
+   pomodoro_trabajo en vez de neutral (`TRABAJO` en mongo_comportamiento.py). Navidad y
+   año nuevo siguen teniendo prioridad.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,
@@ -198,11 +202,11 @@ respetar estas reglas, porque cada una corrigió un error real:
   temporizador, recordatorio.
 - **Solo en la placa:** conectando, configurar_wifi, actualizando,
   tacto_cosquillas, tacto_molesto, tacto_despertar.
-- **Funciones futuras:** mensaje (Telegram), pomodoro_trabajo, pomodoro_descanso.
+- **Funciones futuras:** mensaje (Telegram), pomodoro_descanso.
 - **Personalidad, solo por show_face** (las elige la IA según la descripción de la
   herramienta): curioso, decepcionado, esceptico, eureka, excited, ignorando,
   ofendido, orgulloso, picaro, presumido, rodar_ojos, smug, terrified.
-- neutral es el reposo.
+- neutral es el reposo (de 8:00 a 11:00, pomodoro_trabajo).
 
 ## Orden sugerido al portar
 
