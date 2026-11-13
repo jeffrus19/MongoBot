@@ -143,6 +143,8 @@ OJOS_AJUSTE = {
     "alarma": (1.039, 0, 8), "temporizador": (1.391, 0, 10), "actualizando": (1.297, -8, 32),
     "recordatorio": (1.18, -56, 76), "volumen": (0.852, -1, 8), "smug": (1.977, -55, 46),
     "conversa_escucha": (1.977, -29, -66), "pensando": (1.133, 0, 10),
+    "furioso": (1.133, -7, 64), "eureka": (1.027, -4, 78), "orgulloso": (1.074, -10, 57),
+    "presumido": (0.945, 0, 24),
 }
 
 
