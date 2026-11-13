@@ -47,6 +47,8 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
         if total <= 0:
             return _error("give minutes and/or seconds greater than 0")
         it = al.programar("temporizador", datetime.now() + timedelta(seconds=total), args.get("label", ""))
+        if al.es_silencioso(it):          # pomodoro: sin cara con golpe ni aviso al terminar
+            return _ok(scheduled=al.describir(it), id=it["id"], seconds=total, silent=True)
         mongo_caras.mostrar("temporizador", 4)
         return _ok(scheduled=al.describir(it), id=it["id"], seconds=total)
 
@@ -113,6 +115,9 @@ def register_alarma_tools(add_tool: Callable[[McpTool], None]) -> None:
             ("Start a countdown timer. When it ends, MongoBot shouts 'RING RING RING'.\n"
              + al_sonar +
              "Use for: 'temporizador de 10 minutos', 'avisame en 30 segundos', 'cuenta 5 minutos'.\n"
+             "A timer whose label mentions 'pomodoro' is silent: it ends with no warning and no sound. "
+             "Never offer or start a pomodoro on your own just because the pomodoro_trabajo face is on "
+             "screen: that face is only MongoBot's resting face from 8:00 to 11:00.\n"
              "Parameters: minutes, seconds (at least one > 0), label (optional, e.g. 'arroz')."),
             PropertyList([Property("minutes", PropertyType.INTEGER, default_value=0, min_value=0, max_value=1440),
                           Property("seconds", PropertyType.INTEGER, default_value=0, min_value=0, max_value=3600),

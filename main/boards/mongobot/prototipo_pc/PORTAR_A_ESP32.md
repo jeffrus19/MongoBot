@@ -193,6 +193,13 @@ respetar estas reglas, porque cada una corrigió un error real:
    pomodoro_trabajo en vez de neutral (`TRABAJO` en mongo_comportamiento.py). Navidad y
    año nuevo siguen teniendo prioridad.
 
+29. **Pomodoro en silencio.** Un temporizador cuya nota dice "pomodoro" termina sin aviso
+   y sin sonido (`es_silencioso` en mongo_alarmas.py), y al programarlo no muestra la
+   cara con golpe. La IA no debe ofrecer un pomodoro solo porque está la cara
+   pomodoro_trabajo: es el reposo de la mañana. Los demás avisos gritan siempre
+   "RING RING RIIIIING ¡ALARMA!" y la nota va en pantalla, porque el servidor rechaza
+   los textos largos.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

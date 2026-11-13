@@ -288,6 +288,11 @@ def _rotulo(it: dict) -> str:
     return f"{msg} {texto}" if texto else msg
 
 
+def es_silencioso(it: dict) -> bool:
+    """Los temporizadores de pomodoro terminan en silencio: sin aviso, sin sonido."""
+    return it.get("tipo") == "temporizador" and "pomodoro" in (it.get("texto") or "").lower()
+
+
 def es_aviso_propio(texto: str) -> bool:
     t = (texto or "").strip().upper()
     return t.startswith("RING RING") or any(t.startswith(p) for p in PREFIJOS.values())
@@ -339,6 +344,10 @@ async def _revisar() -> None:
         else:
             _items.remove(it)
     _guardar()
+    vencidas = [it for it in vencidas if not es_silencioso(it)]
+    if not vencidas:
+        logger.info("[MongoAlarmas] era un pomodoro: termina en silencio")
+        return
     it = vencidas[0]
     _sonando = {"item": it, "veces": 1, "ultimo": ahora}
     await _gritar(it, 1)
