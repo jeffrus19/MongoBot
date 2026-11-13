@@ -272,14 +272,20 @@ GRITOS = {"alarma": "¡ALARMA!", "temporizador": "¡SE ACABÓ EL TIEMPO!", "reco
 
 
 def _mensaje(it: dict, vez: int) -> str:
-    """Lo que MongoBot tiene que gritar, tal cual: 'RING RING RIIIIING ¡ALARMA!'. Va corto
-    porque el servidor rechaza los textos largos; la instrucción de repetirlo sin agregar
-    nada está en la descripción de las herramientas self.alarm.* y en el rol del agente."""
-    msg = f"{RING} {GRITOS.get(it['tipo'], '¡ALARMA!')}"
+    """Lo que MongoBot tiene que gritar, tal cual: 'RING RING RIIIIING ¡ALARMA!'. Siempre
+    esa frase y nada más, sea alarma, temporizador o recordatorio: el servidor rechaza
+    ("Detect is only for wake words") los avisos más largos, por ejemplo con la nota
+    "pomodoro de trabajo", y entonces MongoBot no dice nada. La nota va en pantalla
+    (_rotulo). La instrucción de repetirlo sin agregar nada está en la descripción de las
+    herramientas self.alarm.* y en el rol del agente."""
+    return f"{RING} ¡ALARMA!"
+
+
+def _rotulo(it: dict) -> str:
+    """Texto completo para la pantalla: '¡SE ACABÓ EL TIEMPO! pomodoro de trabajo'."""
+    msg = GRITOS.get(it["tipo"], "¡ALARMA!")
     texto = (it.get("texto") or "").strip()
-    if texto:
-        msg += f" {texto}"
-    return msg[:LARGO_MAX]
+    return f"{msg} {texto}" if texto else msg
 
 
 def es_aviso_propio(texto: str) -> bool:
@@ -292,6 +298,13 @@ async def _gritar(it: dict, vez: int) -> None:
 
     cara = {"alarma": "alarma", "temporizador": "temporizador", "recordatorio": "recordatorio"}.get(it["tipo"], "alarma")
     mongo_caras.mostrar(cara if it["tipo"] != "temporizador" else "alarma", REPETIR_CADA + 2)
+    try:
+        from src.plugins import mongo_comportamiento
+
+        if (c := mongo_comportamiento.actual()) is not None:
+            c._texto(_rotulo(it))
+    except Exception as e:                                       # noqa: BLE001
+        logger.debug(f"[MongoAlarmas] sin rótulo: {e}")
     if _enviar is None:
         logger.warning("[MongoAlarmas] no hay conexión con el servidor para gritar")
         return
