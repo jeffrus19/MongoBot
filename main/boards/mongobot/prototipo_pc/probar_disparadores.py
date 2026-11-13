@@ -96,11 +96,14 @@ async def main():
     c = mc.Comportamiento(lambda e: vistas.setdefault(e, reloj[0]), reloj=lambda: reloj[0], hoy=lambda: date(2026,11,12),
                           azar=random.Random(1), momento=jueves)
     c.inicio()
-    for s in range(720): reloj[0]=float(s); c.tic()
+    for s in range(int(4.1 * 3600)): reloj[0]=float(s); c.tic()
     for a, desc in [("saludo","al arrancar"),("aburrido","1 min sin hablarle"),("mirando","entre actividades"),
-                    ("llamando","cada 3 actividades"),
                     ("leyendo","inactividad 8:00-20:00")]:
         anotar(a, desc, a in vistas, f"min {vistas[a]/60:.1f}" if a in vistas else "no salió")
+    t_llama = vistas.get("llamando")
+    anotar("llamando", "al azar entre 2:30 y 4:00 h sin hablarle",
+           t_llama is not None and 2.5 * 3600 <= t_llama <= 4 * 3600 + 120,
+           f"a las {t_llama/3600:.2f} h" if t_llama is not None else "no salió")
     # horarios: qué actividades salen en cada momento (en ~10 min de inactividad)
     E, L, G, V = "ejercicio", "leyendo", "guitarra", "videojuego"
     for cuando, esperado in ((datetime(2026,11,12,12,0), {L,V}),     # jueves mediodía

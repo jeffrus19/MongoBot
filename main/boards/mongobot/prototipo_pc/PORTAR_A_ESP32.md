@@ -200,6 +200,10 @@ respetar estas reglas, porque cada una corrigió un error real:
    "RING RING RIIIIING ¡ALARMA!" y la nota va en pantalla, porque el servidor rechaza
    los textos largos.
 
+30. **Llamar la atención, muy de vez en cuando.** Sin que le hablés, toca el vidrio
+   (llamando) en un momento al azar entre 2:30 y 4:00 h (`LLAMAR_MIN`/`LLAMAR_MAX`); el
+   conteo vuelve a empezar cada vez que le hablás, al llamar y al levantarse a las 6:00.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

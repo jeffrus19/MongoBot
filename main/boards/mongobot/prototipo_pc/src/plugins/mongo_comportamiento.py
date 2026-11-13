@@ -28,8 +28,9 @@ Sistema
 Inactividad (sin que le hablés)
 - 0 a 60 s              -> neutral (o la cara de temporada en diciembre)
 - a los 60 s            -> aburrido, y luego alterna las actividades que tocan a esa hora
-                           (HORARIOS), con ratos de "mirando" entre una y otra; cada tanto
-                           toca el vidrio para llamarte (llamando) y te dice algo:
+                           (HORARIOS), con ratos de "mirando" entre una y otra; cada
+                           2:30 a 4:00 h al azar (LLAMAR_MIN/LLAMAR_MAX) toca el vidrio
+                           para llamarte (llamando) y te dice algo:
                              ejercicio             mar, mié y jue de 9:00 a 10:00; sáb y dom de 8:00 a 11:00
                              leyendo               todos los días de 8:00 a 20:00
                              guitarra              sábado y domingo de 10:00 a 17:00, sonido al 15 %
@@ -69,7 +70,8 @@ DORMIR = 600               # (ya no se usa de día: solo duerme de noche)
 ACTIVIDAD = 40
 ENTRE_ACTIVIDADES = 8
 ABURRIDO = 6
-LLAMAR_CADA = 3            # cada cuántas actividades llama la atención
+LLAMAR_MIN = 2.5 * 3600    # toca el vidrio al azar entre 2:30 y 4:00 h sin que le hablés
+LLAMAR_MAX = 4 * 3600
 LLAMANDO = 6
 BOSTEZO = 3
 SALUDO = 3
@@ -196,6 +198,7 @@ class Comportamiento:
         self._fase = "reposo"          # reposo | aburrido | actividad | entre | llamando | bostezo | dormido
         self._fase_hasta = 0.0
         self._actividades_hechas = 0
+        self._proximo_llamado = self._reloj() + self._azar.uniform(LLAMAR_MIN, LLAMAR_MAX)
         self._ultima_actividad: str | None = None
         self._hasta_saludo = 0.0
         self._sonando_mio = False      # el loop (guitarra/videojuego) lo encendió esta capa
@@ -293,6 +296,7 @@ class Comportamiento:
         """A las 6:00: se despierta solo."""
         self._dormido = self._dormido_noche = False
         self._contacto, self._fase = ahora, "reposo"
+        self._proximo_llamado = ahora + self._azar.uniform(LLAMAR_MIN, LLAMAR_MAX)
         from src.plugins import mongo_caras
 
         if not mongo_caras.bloqueada():
@@ -319,6 +323,7 @@ class Comportamiento:
         self._dormido_noche = False
         self._fase = "reposo"
         self._actividades_hechas = 0
+        self._proximo_llamado = self._contacto + self._azar.uniform(LLAMAR_MIN, LLAMAR_MAX)
         self._sonido_actividad(False)
         return estaba_dormido
 
@@ -600,11 +605,11 @@ class Comportamiento:
             return
         # se acabó la fase actual: siguiente
         if self._fase in ("aburrido", "entre", "llamando"):
-            if self._fase != "llamando" and self._actividades_hechas and self._actividades_hechas % LLAMAR_CADA == 0:
+            if self._fase != "llamando" and ahora >= self._proximo_llamado:
                 self._fase, self._fase_hasta = "llamando", ahora + LLAMANDO
                 self._mostrar("llamando")
                 self._texto(self._azar.choice(FRASES_LLAMAR))
-                self._actividades_hechas += 1      # para no llamar dos veces seguidas
+                self._proximo_llamado = ahora + self._azar.uniform(LLAMAR_MIN, LLAMAR_MAX)
                 return
             disponibles = self._actividades()
             if not disponibles:                    # de noche: solo mira alrededor
