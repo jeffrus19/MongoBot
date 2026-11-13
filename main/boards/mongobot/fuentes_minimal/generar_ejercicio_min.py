@@ -46,6 +46,7 @@ def profundidad(t):
 
 def cuadro(t):
     L = mm.Lienzo(COLOR)
+    L.solo = False          # conserva la cabeza redonda (ver CON_CUERPO en mongo_minimal)
     rep = int(t // REP)
     p = profundidad(t)
     u = (t % REP) / REP

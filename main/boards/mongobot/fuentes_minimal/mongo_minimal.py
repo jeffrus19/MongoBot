@@ -128,6 +128,28 @@ except (OSError, ValueError):
     pass
 
 
+# Solo ojos (noviembre 2026): sin el aro ni el disco negro, los ojos se agrandan para
+# aprovechar la pantalla. Las animaciones con cuerpo o que lo necesitan conservan la
+# cabeza redonda (CON_CUERPO). Las demás usan OJOS_ZOOM, salvo las de OJOS_AJUSTE, que
+# tienen adornos alrededor: (factor de zoom, corrimiento x, corrimiento y) medidos para
+# que nada toque el borde y el conjunto quede centrado.
+SOLO_OJOS = True
+CON_CUERPO = {"saludo", "sin_conexion", "ejercicio", "leyendo", "guitarra", "videojuego",
+              "clima_sol", "clima_nube", "clima_lluvia", "conectando", "musica", "conversa_habla",
+              "llamando", "configurar_wifi", "mensaje", "pomodoro_trabajo", "pomodoro_descanso",
+              "navidad", "anio_nuevo"}
+OJOS_ZOOM = 2.0
+OJOS_AJUSTE = {
+    "alarma": (1.039, 0, 8), "temporizador": (1.391, 0, 10), "actualizando": (1.297, -8, 32),
+    "recordatorio": (1.18, -56, 76), "volumen": (0.852, -1, 8), "smug": (1.977, -55, 46),
+    "conversa_escucha": (1.977, -29, -66), "pensando": (1.133, 0, 10),
+}
+
+
+def solo_ojos():
+    return VERTICAL and SOLO_OJOS and ACTUAL not in CON_CUERPO
+
+
 class Lienzo:
     def __init__(self, color):
         self.oy = (VERT_Y + VERT_DY.get(ACTUAL, 0)) if VERTICAL else 0
@@ -141,6 +163,7 @@ class Lienzo:
         self.cara = None   # cuando hay una Cara, lo de adentro se pinta sobre la esfera
         self.zoom = 1.0    # agranda todo alrededor de zoom_c al terminar (final)
         self.zoom_c = (CX, CY)
+        self.solo = solo_ojos()   # sin aro, ojos grandes (los generadores con cuerpo lo apagan)
 
     def T(self, x, y):
         c = self.cara
@@ -195,6 +218,12 @@ class Lienzo:
             self.linea([(cx - (w - h) / 2, cy), (cx + (w - h) / 2, cy)], h, color)
 
     def final(self):
+        pegar_y = 0
+        if self.solo:
+            f, dx, pegar_y = OJOS_AJUSTE.get(ACTUAL, (OJOS_ZOOM, 0, 0))
+            self.zoom *= f
+            self.escala = 1.0
+            self.ox -= dx          # en horizontal se corre el recorte: no deja huecos
         img = self.img
         cw, ch = img.size
         if self.zoom != 1.0:
@@ -212,7 +241,12 @@ class Lienzo:
             img = img.crop((int(x0), int(y0), int(x0 + cw / self.escala), int(y0 + ch / self.escala))).resize((cw, ch))
         x0 = (CX + self.ox - PW / 2) * SS
         img = img.crop((int(x0), 0, int(x0 + PW * SS), ch))
-        return img.resize((PW, PH), Image.LANCZOS)
+        img = img.resize((PW, PH), Image.LANCZOS)
+        if pegar_y:
+            corrida = Image.new("RGB", img.size, (0, 0, 0))
+            corrida.paste(img, (0, int(round(pegar_y))))
+            img = corrida
+        return img
 
 
 def bezier(P, n=20):
@@ -259,6 +293,9 @@ class Cara:
 
 
 def cabeza(L, c):
+    if L.solo:
+        L.cara = c         # sin aro ni disco: la cara sigue girando como esfera
+        return
     # el aro: la silueta de la esfera, siempre un círculo
     px, py = L.T(c.cx, c.cy)
     L.d.ellipse((px - c.rx * SS, py - c.ry * SS, px + c.rx * SS, py + c.ry * SS), fill=ARO)

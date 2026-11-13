@@ -47,6 +47,7 @@ def ojos_abiertos(t):
 
 def cuadro(t):
     L = mm.Lienzo(COLOR)
+    L.solo = False          # conserva la cabeza redonda (ver CON_CUERPO en mongo_minimal)
     negra = (t / (2 * g1.CORCHEA)) % 1                 # pulso de negra
     cabeceo = 3.0 * math.sin(negra * math.pi) ** 2
     ab = ojos_abiertos(t)

@@ -131,6 +131,7 @@ def explosion(L, x, y, u):
 
 def cuadro(t):
     L = mm.Lienzo(COLOR)
+    L.solo = False          # conserva la cabeza redonda (ver CON_CUERPO en mongo_minimal)
     mx_, my_ = pos_monstruo(t)
     concentrado = mm.ease((t - 1.3) / 0.3) * (1 - mm.ease((t - GOLPE) / 0.1))
     celebra = mm.ease((t - GOLPE) / 0.1) * (1 - mm.ease((t - 3.85) / 0.2))

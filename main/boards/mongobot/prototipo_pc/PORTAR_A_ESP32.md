@@ -179,6 +179,16 @@ respetar estas reglas, porque cada una corrigió un error real:
    IA contesta sin usarla, al terminar MongoBot le manda "usa OpenStreetMap: <tu
    pregunta>" una sola vez (regex `PEDIR_RUTA`).
 
+27. **Solo ojos.** La mayoría de las caras van sin el aro blanco ni el disco negro: solo
+   los ojos (y cejas, rubor, lágrimas), unas 2 veces más grandes, para aprovechar la
+   pantalla. Conservan la cabeza redonda las que tienen cuerpo o lo necesitan
+   (`CON_CUERPO` en mongo_minimal.py: saludo, sin_conexion, ejercicio, leyendo, guitarra,
+   videojuego, clima_*, conectando, musica, conversa_habla, llamando, configurar_wifi,
+   mensaje, pomodoro_*, navidad, anio_nuevo). Las que tienen adornos alrededor usan un
+   tamaño y un corrimiento propios (`OJOS_AJUSTE`) para que nada toque el borde y el
+   conjunto quede centrado. En LVGL: no dibujar el aro y escalar los rasgos con el mismo
+   factor.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,

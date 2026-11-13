@@ -188,6 +188,7 @@ ANIMS = [("anio_nuevo", a_anio_nuevo, DUR_AN), ("navidad", a_navidad, 4.8)]
 
 def cuadro(fn, t):
     L = mm.Lienzo(OJO)
+    L.solo = False          # conserva la cabeza redonda (ver CON_CUERPO en mongo_minimal)
     fn(L, t)
     return L.final()
 
