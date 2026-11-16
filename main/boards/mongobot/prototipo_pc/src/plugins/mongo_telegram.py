@@ -10,6 +10,11 @@ Desde el celular le podés escribir al bot para:
     /cancelar [id|hora|todas] borra (sin nada: la próxima)
     /parar                   calla la alarma que esté sonando
     /mensaje texto           lo muestra en la pantalla (cualquier texto suelto, también)
+    /anotar texto            lo guarda en la memoria de MongoBot
+    /buscar palabras         busca en esa memoria (/memoria: lo último guardado)
+    /agenda [hoy|mañana|semana|viernes]
+    /temblores               sismos de las últimas 24 h cerca de casa
+    /encender aparato, /apagar aparato   (Home Assistant)
     /ayuda
 
 Y MongoBot te avisa por Telegram cuando suena una alarma, un temporizador o un
@@ -42,6 +47,9 @@ _API = "https://api.telegram.org/bot{token}/{metodo}"
 ESPERA = 30                 # segundos de long polling
 SIN_TOKEN_REVISAR = 60      # sin token: cada cuánto vuelve a mirar el archivo de claves
 MENSAJE_EN_PANTALLA = 12    # segundos que se ve la cara "mensaje"
+# "detené la alarma", "apagá el temporizador" (con la alarma sonando basta "pará", "silencio")
+PARAR_ALARMA = re.compile(r"\b(det[eé]n\w*|par[aá]\w*|apag[aá]\w*|call[aá]\w*|silenci\w*)\b.*"
+                          r"\b(alarma|temporizador|recordatorio)", re.IGNORECASE)
 RELATIVO = re.compile(r"^(\d+)\s*(s|seg|m|min|h|hr|hora|horas)$", re.IGNORECASE)
 
 AYUDA = (
@@ -53,7 +61,12 @@ AYUDA = (
     "/lista – lo programado\n"
     "/cancelar [id | hora | todas] – sin nada borra la próxima\n"
     "/parar – callo la alarma que esté sonando\n"
-    "/mensaje texto – lo pongo en mi pantalla (o escribime cualquier cosa)"
+    "/mensaje texto – lo pongo en mi pantalla (o escribime cualquier cosa)\n"
+    "/anotar texto – lo guardo en mi memoria\n"
+    "/buscar palabras – busco en mi memoria (/memoria: lo último)\n"
+    "/agenda [hoy | mañana | semana | viernes]\n"
+    "/temblores – sismos de las últimas 24 h cerca\n"
+    "/encender luz sala, /apagar luz sala – la casa (Home Assistant)"
 )
 
 _loop: asyncio.AbstractEventLoop | None = None
@@ -149,6 +162,8 @@ def responder(texto: str) -> str:
     if not texto:
         return AYUDA
     if not texto.startswith("/"):
+        if (al._sonando is not None and al.pide_parar(texto)) or PARAR_ALARMA.search(texto):
+            return "Listo, la callé." if al.detener() else "No estaba sonando nada."
         return _mostrar_mensaje(texto)
     orden, _, resto = texto.partition(" ")
     orden = orden[1:].split("@")[0].lower()
@@ -181,8 +196,49 @@ def responder(texto: str) -> str:
             return "Listo, la callé." if al.detener() else "No estaba sonando nada."
         if orden == "mensaje":
             return _mostrar_mensaje(resto) if resto else "Escribí el mensaje después de /mensaje."
+        return _extra(orden, resto)
     except ValueError:
         return "No entendí la hora. Probá con 6:30, 7 pm, 20m o 2h."
+
+
+def _extra(orden: str, resto: str) -> str:
+    """Memoria, agenda, temblores y casa."""
+    from src.plugins import mongo_calendario, mongo_hogar, mongo_memoria, mongo_temblores
+
+    try:
+        if orden in ("anotar", "recorda", "acordate"):
+            if not resto:
+                return "Escribí qué guardo. Ej.: /anotar las llaves del carro están en la gaveta"
+            return f"Guardado (#{mongo_memoria.recordar(resto)['id']})."
+        if orden in ("buscar", "memoria"):
+            hallados = mongo_memoria.buscar(resto, maximo=10 if orden == "memoria" else 5)
+            return "\n".join(f"#{i['id']} {i['texto']} ({i['fecha']})" for i in hallados) \
+                if hallados else "No tengo nada guardado sobre eso."
+        if orden == "olvidar":
+            q = mongo_memoria.olvidar(resto)
+            return f"Olvidé: {q[0]['texto']}" if q else "No encontré ese recuerdo."
+        if orden == "agenda":
+            if not mongo_calendario.configurado():
+                return "Falta GOOGLE_CALENDAR_ICS_URL en mongobot_claves.json."
+            desde, hasta, desc = mongo_calendario.rango(resto or "hoy")
+            ev = mongo_calendario.agenda(desde, hasta)
+            return (f"Agenda de {desc}:\n" + "\n".join(mongo_calendario.describir(e) for e in ev)) \
+                if ev else f"No tenés nada {desc}."
+        if orden == "temblores":
+            lista = mongo_temblores.recientes(1, 2.5, 300)
+            return "\n".join(f"M{s['magnitude']} a {s['distance_km']} km – {s['place']} ({s['time']})"
+                             for s in lista[:10]) if lista else "Ningún sismo de 2.5 o más en las últimas 24 h cerca."
+        if orden in ("encender", "prender", "apagar"):
+            if not resto:
+                return f"Decime qué. Ej.: /{orden} luz sala"
+            r = mongo_hogar.controlar(resto, "turn_off" if orden == "apagar" else "turn_on")
+            return ("Listo: " + ", ".join(r["devices"])) if r["ok"] else r["error"]
+    except mongo_hogar.SinConfigurar as e:
+        return str(e)
+    except ValueError:
+        return "No entendí la fecha. Probá con hoy, mañana, semana, un día (viernes) o 2026-11-20."
+    except Exception as e:                                       # noqa: BLE001
+        return f"Algo falló: {e}"
     return "No conozco esa orden.\n\n" + AYUDA
 
 
@@ -192,7 +248,8 @@ async def correr() -> None:
     """Escucha los mensajes del bot. Lo arranca el plugin de UI."""
     global _loop
     _loop = asyncio.get_running_loop()
-    mongo_claves.asegurar_campos(["TAVILY_API_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"])
+    mongo_claves.asegurar_campos(["TAVILY_API_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID",
+                                  "HOME_ASSISTANT_URL", "HOME_ASSISTANT_TOKEN", "GOOGLE_CALENDAR_ICS_URL"])
     offset: int | None = None
     avisado_sin_token = False
     while True:

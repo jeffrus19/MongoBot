@@ -43,6 +43,7 @@ class UIPlugin(Plugin):
         self._subscriptions = []
         self._alarmas_task: asyncio.Task | None = None
         self._telegram_task: asyncio.Task | None = None
+        self._extra_tasks: list[asyncio.Task] = []
         self._comportamiento_task: asyncio.Task | None = None
 
     async def setup(self, ctx: "PluginContext", cmd: "PluginCommands") -> None:
@@ -90,6 +91,15 @@ class UIPlugin(Plugin):
 
         self._telegram_task = self._cmd.spawn(mongo_telegram.correr(), name="ui:mongo_telegram")
 
+        # MongoBot: avisos de temblores y citas, y cara de música con Spotify
+        from src.plugins import mongo_calendario, mongo_spotify, mongo_temblores
+
+        self._extra_tasks = [
+            self._cmd.spawn(mongo_temblores.correr(), name="ui:mongo_temblores"),
+            self._cmd.spawn(mongo_calendario.correr(), name="ui:mongo_calendario"),
+            self._cmd.spawn(mongo_spotify.correr(), name="ui:mongo_spotify"),
+        ]
+
         # MongoBot: capa de comportamiento (saludo al arrancar, inactividad)
         from src.plugins import mongo_comportamiento
 
@@ -134,6 +144,9 @@ class UIPlugin(Plugin):
         if self._telegram_task is not None:
             self._telegram_task.cancel()
             self._telegram_task = None
+        for t in self._extra_tasks:
+            t.cancel()
+        self._extra_tasks = []
         if self._comportamiento_task is not None:
             self._comportamiento_task.cancel()
             self._comportamiento_task = None

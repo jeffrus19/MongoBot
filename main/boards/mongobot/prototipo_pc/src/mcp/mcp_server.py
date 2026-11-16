@@ -157,6 +157,9 @@ class McpServer:
         from src.mcp.tools.busqueda import register_busqueda_tools
 
         register_busqueda_tools(common_tools.append)  # MongoBot: búsqueda web (Tavily)
+        from src.mcp.tools.mongo_extra import register_mongo_extra_tools
+
+        register_mongo_extra_tools(common_tools.append)  # MongoBot: temblores, casa, memoria, agenda, Spotify
 
         preserved = [
             tool for tool in self.tools

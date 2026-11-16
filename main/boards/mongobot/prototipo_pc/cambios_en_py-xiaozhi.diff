@@ -1,8 +1,8 @@
 diff --git a/src/mcp/mcp_server.py b/src/mcp/mcp_server.py
-index 6d8c492..bd45ce2 100644
+index 6d8c492..1f00ce2 100644
 --- a/src/mcp/mcp_server.py
 +++ b/src/mcp/mcp_server.py
-@@ -140,12 +140,23 @@ class McpServer:
+@@ -140,12 +140,26 @@ class McpServer:
              register_music_tools(common_tools.append, music_player)
  
          from src.mcp.tools.app import register_app_tools
@@ -23,6 +23,9 @@ index 6d8c492..bd45ce2 100644
 +        from src.mcp.tools.busqueda import register_busqueda_tools
 +
 +        register_busqueda_tools(common_tools.append)  # MongoBot: búsqueda web (Tavily)
++        from src.mcp.tools.mongo_extra import register_mongo_extra_tools
++
++        register_mongo_extra_tools(common_tools.append)  # MongoBot: temblores, casa, memoria, agenda, Spotify
  
          preserved = [
              tool for tool in self.tools
@@ -371,20 +374,21 @@ index c708f93..064c2bd 100644
 +    return json.dumps({"ok": True, "city": r["lugar"]["nombre"], "country": r["lugar"]["pais"],
 +                       "forecast": dias_lista, "source": "Open-Meteo"}, ensure_ascii=False)
 diff --git a/src/plugins/ui.py b/src/plugins/ui.py
-index 304b03a..cb08c26 100644
+index 304b03a..5ab35d3 100644
 --- a/src/plugins/ui.py
 +++ b/src/plugins/ui.py
-@@ -41,6 +41,9 @@ class UIPlugin(Plugin):
+@@ -41,6 +41,10 @@ class UIPlugin(Plugin):
          self._stopping = False
          self._viewport_closed = False
          self._subscriptions = []
 +        self._alarmas_task: asyncio.Task | None = None
 +        self._telegram_task: asyncio.Task | None = None
++        self._extra_tasks: list[asyncio.Task] = []
 +        self._comportamiento_task: asyncio.Task | None = None
  
      async def setup(self, ctx: "PluginContext", cmd: "PluginCommands") -> None:
          await super().setup(ctx, cmd)
-@@ -72,6 +75,32 @@ class UIPlugin(Plugin):
+@@ -72,6 +76,41 @@ class UIPlugin(Plugin):
          if self._session:
              self._session.subscribe(bus)
  
@@ -403,6 +407,15 @@ index 304b03a..cb08c26 100644
 +
 +        self._telegram_task = self._cmd.spawn(mongo_telegram.correr(), name="ui:mongo_telegram")
 +
++        # MongoBot: avisos de temblores y citas, y cara de música con Spotify
++        from src.plugins import mongo_calendario, mongo_spotify, mongo_temblores
++
++        self._extra_tasks = [
++            self._cmd.spawn(mongo_temblores.correr(), name="ui:mongo_temblores"),
++            self._cmd.spawn(mongo_calendario.correr(), name="ui:mongo_calendario"),
++            self._cmd.spawn(mongo_spotify.correr(), name="ui:mongo_spotify"),
++        ]
++
 +        # MongoBot: capa de comportamiento (saludo al arrancar, inactividad)
 +        from src.plugins import mongo_comportamiento
 +
@@ -417,7 +430,7 @@ index 304b03a..cb08c26 100644
          if self.viewport:
              self._viewport_task = self._cmd.spawn(
                  self._run_viewport(), name=f"ui:{self.mode}:start"
-@@ -96,6 +125,18 @@ class UIPlugin(Plugin):
+@@ -96,6 +135,21 @@ class UIPlugin(Plugin):
  
      async def stop(self) -> None:
          self._stopping = True
@@ -430,6 +443,9 @@ index 304b03a..cb08c26 100644
 +        if self._telegram_task is not None:
 +            self._telegram_task.cancel()
 +            self._telegram_task = None
++        for t in self._extra_tasks:
++            t.cancel()
++        self._extra_tasks = []
 +        if self._comportamiento_task is not None:
 +            self._comportamiento_task.cancel()
 +            self._comportamiento_task = None

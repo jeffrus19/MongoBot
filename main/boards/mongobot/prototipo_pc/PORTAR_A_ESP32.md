@@ -231,6 +231,40 @@ respetar estas reglas, porque cada una corrigió un error real:
    lugar del modelo chino que usa la PC. Primer arranque igual que XiaoZhi: red
    "Xiaozhi-XXXX", WiFi de 2.4 GHz y el código de 6 dígitos en xiaozhi.me.
 
+35. **Temblores** (`mongo_temblores.py`). Cada minuto lee el feed de USGS (público, sin
+   clave). Avisa solo (cara `shocked`, texto, Telegram y "¡TEMBLOR! Magnitud X" en voz)
+   si es M4.0+ a menos de 150 km de casa o M5.5+ a menos de 400 km, y ocurrió hace
+   menos de 20 min. Herramienta `self.quakes.recent` y `/temblores` en Telegram. Los
+   sismos muy pequeños de Costa Rica los reporta mejor la RSN u OVSICORI (sin API).
+
+36. **Casa con Home Assistant** (`mongo_hogar.py`, API REST). Claves HOME_ASSISTANT_URL
+   y HOME_ASSISTANT_TOKEN (token de larga duración). Herramientas `self.home.control`
+   (encender, apagar, brillo, temperatura, volumen, abrir/cerrar, escenas),
+   `self.home.devices` y `self.home.state`; los aparatos se buscan por su nombre, sin
+   tildes. Telegram: /encender y /apagar. En la placa: las mismas llamadas HTTP.
+
+37. **Memoria personal** (`mongo_memoria.py`). "Acordate que..." se guarda en
+   mongo_memoria.json (carpeta de datos) y se busca por palabras en común (sin tildes,
+   plural simple). Herramientas `self.memory.remember/recall/forget`; Telegram /anotar,
+   /buscar, /memoria, /olvidar. En la placa: archivo en SPIFFS/LittleFS.
+
+38. **Calendario** (`mongo_calendario.py`). Lee la "dirección secreta en formato iCal" de
+   Google Calendar (GOOGLE_CALENDAR_ICS_URL; varias separadas por espacios), sin
+   cuentas. Entiende repeticiones (diaria, semanal con días, mensual con "2.º martes",
+   anual, COUNT, UNTIL, excepciones y citas movidas). Avisa 15 min antes de cada cita con
+   hora (cara `recordatorio`, Telegram, "¡CITA EN 15 MINUTOS!"). Herramienta
+   `self.calendar.agenda` y /agenda. Costa Rica es UTC-6 todo el año.
+
+39. **Spotify** (`mongo_spotify.py`, solo PC con Windows). Teclas multimedia para
+   play/pausa, siguiente y anterior; el título de la ventana de Spotify dice qué suena;
+   "poné algo de X" abre Spotify con esa búsqueda. Mientras suena, cara `musica`.
+   Herramienta `self.spotify.control`; recomienda metal cuando no le piden un artista.
+   En la placa no aplica: ahí la música sería a través de Home Assistant.
+
+40. **Avisos con voz corta.** Todos los avisos propios (alarmas, temblores, citas) dicen
+   en voz una frase de 27 caracteres o menos; el detalle va en pantalla y en Telegram,
+   porque el servidor rechaza los textos largos (`mongo_avisos.py`).
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,
