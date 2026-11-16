@@ -1,0 +1,420 @@
+"""
+MCP Server Implementation for Python
+Reference: https://modelcontextprotocol.io/specification/2024-11-05
+"""
+
+import json
+from collections.abc import Callable
+from typing import Any
+
+from src.constants.system import SystemConstants
+from src.logging import get_logger
+from src.mcp.plugins.registry import PluginRuntime
+from src.mcp.tooling import McpTool, PropertyList
+from src.utils.config_manager import ConfigManager
+
+logger = get_logger()
+
+
+class McpServer:
+    """
+    MCP服务器实现.
+
+    由 ServiceContainer 创建，经 McpPlugin 注入。
+    """
+
+    def __init__(self, config=None):
+        self.config = (
+            config if config is not None
+            else ConfigManager.from_dict({"MCP_PLUGINS": {"ENABLED": False}})
+        )
+        self.tools: list[McpTool] = []
+        self._send_callback: Callable | None = None
+        self._camera = None
+        self._plugin_runtime = PluginRuntime(
+            self.add_tools_atomic, self.remove_tools_by_names
+        )
+        self._common_tool_names: set[str] = set()
+
+    def set_send_callback(self, callback: Callable | None):
+        """
+        设置发送消息的回调函数；传 None 表示解绑。
+        """
+        self._send_callback = callback
+
+    def set_camera(self, camera) -> None:
+        """注入摄像头（vision 配置 / take_photo 共用）."""
+        self._camera = camera
+
+    def get_camera(self):
+        return self._camera
+
+    def detach(self) -> None:
+        """容器关闭时回收外挂和运行时依赖；内置工具保留。"""
+        try:
+            self._unload_external_plugins()
+        finally:
+            self._send_callback = None
+            self._camera = None
+
+    def add_tool(
+        self, tool: McpTool | tuple[str, str, PropertyList, Callable]
+    ):
+        """
+        添加工具.
+        """
+        if isinstance(tool, tuple):
+            # 从参数创建McpTool
+            name, description, properties, callback = tool
+            tool = McpTool(name, description, properties, callback)
+
+        self.add_tools_atomic([tool])
+
+    def add_tools_atomic(self, tools: list[McpTool]) -> None:
+        """整批校验成功后提交；冲突不改变现有工具列表。"""
+        names = {tool.name for tool in self.tools}
+        for tool in tools:
+            if tool.name in names:
+                raise ValueError(f"Tool name conflict: {tool.name}")
+            names.add(tool.name)
+        self.tools.extend(tools)
+        for tool in tools:
+            logger.info(f"Add tool: {tool.name}")
+
+    def remove_tools_by_names(self, names: set[str] | list[str]) -> int:
+        """按名称移除工具，返回移除数量."""
+        name_set = set(names)
+        if not name_set:
+            return 0
+        before = len(self.tools)
+        self.tools = [t for t in self.tools if t.name not in name_set]
+        return before - len(self.tools)
+
+    @property
+    def _plugin_tool_owner(self) -> dict[str, str]:
+        """兼容诊断读取；归属仅由运行时安装记录生成。"""
+        return self._plugin_runtime.tool_owner
+
+    def unload_plugin(self, plugin_id: str) -> int:
+        """卸载插件工具和 worker，零工具插件也使用同一路径。"""
+        return self._plugin_runtime.unload(plugin_id)
+
+    def _unload_external_plugins(self) -> None:
+        self._plugin_runtime.unload_all()
+
+    def reload_external_plugins(
+        self, music_player=None, volume_controller=None
+    ) -> list:
+        """仅重载外挂：先卸掉已知外挂工具，再按配置扫描加载.
+
+        注意：不会重新 register 内置工具；内置应已在 tools 中。
+        """
+        self._unload_external_plugins()
+
+        from src.mcp.plugins.loader import load_mcp_plugins_from_config
+
+        capabilities = {"config_readonly": self.config}
+        if music_player is not None:
+            capabilities["music_player"] = music_player
+
+        return load_mcp_plugins_from_config(
+            self.add_tool,
+            config=self.config,
+            capabilities=capabilities,
+            runtime=self._plugin_runtime,
+        )
+
+    def register_builtin_tools(self, music_player=None, volume_controller=None):
+        """
+        添加通用工具（全部经 register_* 显式挂载）.
+
+        music_player: 容器注入的 MusicPlayer；提供时注册音乐工具。
+        volume_controller: 可选注入的 VolumeController；未提供时由 register 内创建。
+        camera / screenshot 由 McpPlugin 在 setup 中单独 register。
+        """
+        # 先暂存新工具，注册失败时保留现有工具和外挂会话。
+        common_tools: list[McpTool] = []
+        if music_player is not None:
+            from src.mcp.tools.music import register_music_tools
+
+            register_music_tools(common_tools.append, music_player)
+
+        from src.mcp.tools.app import register_app_tools
+        from src.mcp.tools.cara import register_cara_tools
+        from src.mcp.tools.volume import register_volume_tools
+        from src.mcp.tools.weather import register_weather_tools
+
+        register_volume_tools(common_tools.append, volume_controller)
+        register_app_tools(common_tools.append)
+        register_weather_tools(common_tools.append)
+        register_cara_tools(common_tools.append)  # MongoBot: caras animadas
+        from src.mcp.tools.alarmas import register_alarma_tools
+
+        register_alarma_tools(common_tools.append)  # MongoBot: alarmas y recordatorios
+        from src.mcp.tools.trafico import register_trafico_tools
+
+        register_trafico_tools(common_tools.append)  # MongoBot: rutas con OpenStreetMap
+        from src.mcp.tools.busqueda import register_busqueda_tools
+
+        register_busqueda_tools(common_tools.append)  # MongoBot: búsqueda web (Tavily)
+
+        preserved = [
+            tool for tool in self.tools
+            if tool.name not in self._common_tool_names
+        ]
+        names = {tool.name for tool in preserved}
+        for tool in common_tools:
+            if tool.name in names:
+                raise ValueError(f"Tool name conflict: {tool.name}")
+            names.add(tool.name)
+        self.tools = common_tools + preserved
+        self._common_tool_names = {tool.name for tool in common_tools}
+
+    def add_common_tools(self, music_player=None, volume_controller=None):
+        """兼容旧调用；新装配分别注册内置工具和加载外挂。"""
+        self.register_builtin_tools(music_player, volume_controller)
+        try:
+            return self.reload_external_plugins(music_player, volume_controller)
+        except Exception as e:
+            logger.error(f"加载外挂 MCP 插件失败: {e}", exc_info=True)
+            return []
+
+    async def parse_message(self, message: str | dict[str, Any]):
+        """
+        解析MCP消息.
+        """
+        request_id = None
+        try:
+            if isinstance(message, str):
+                data = json.loads(message)
+            else:
+                data = message
+
+            logger.info(
+                f"[MCP] 解析消息: {json.dumps(data, ensure_ascii=False, indent=2)}"
+            )
+
+            # 检查JSONRPC版本
+            if data.get("jsonrpc") != "2.0":
+                logger.error(f"Invalid JSONRPC version: {data.get('jsonrpc')}")
+                return
+
+            method = data.get("method")
+            if not method:
+                logger.error("Missing method")
+                return
+
+            # 忽略通知
+            if method.startswith("notifications"):
+                logger.info(f"[MCP] 忽略通知消息: {method}")
+                return
+
+            params = data.get("params", {})
+            request_id = data.get("id")
+
+            if request_id is None:
+                logger.error(f"Invalid id for method: {method}")
+                return
+
+            logger.info(
+                f"[MCP] 处理方法: {method}, ID: {request_id}, 参数: {params}"
+            )
+
+            # 处理不同的方法
+            if method == "initialize":
+                await self._handle_initialize(request_id, params)
+            elif method == "tools/list":
+                await self._handle_tools_list(request_id, params)
+            elif method == "tools/call":
+                await self._handle_tool_call(request_id, params)
+            else:
+                logger.error(f"Method not implemented: {method}")
+                await self._reply_error(
+                    request_id, f"Method not implemented: {method}"
+                )
+
+        except Exception as e:
+            logger.error(f"Error parsing MCP message: {e}", exc_info=True)
+            if request_id is not None:
+                await self._reply_error(request_id, str(e))
+
+    async def _handle_initialize(
+        self, request_id: int, params: dict[str, Any]
+    ):
+        """
+        处理初始化请求.
+        """
+        # 解析capabilities
+        capabilities = params.get("capabilities", {})
+        await self._parse_capabilities(capabilities)
+
+        # 返回服务器信息
+        result = {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {"tools": {}},
+            "serverInfo": {
+                "name": SystemConstants.APP_NAME,
+                "version": SystemConstants.APP_VERSION,
+            },
+        }
+
+        await self._reply_result(request_id, result)
+
+    def _disabled_tool_names(self) -> set[str]:
+        """从配置读取 MCP_TOOLS.DISABLED（黑名单）."""
+        try:
+            from src.mcp.tool_catalog import normalize_disabled
+
+            raw = self.config.get_config("MCP_TOOLS.DISABLED", []) or []
+            return set(normalize_disabled(raw))
+        except Exception:
+            return set()
+
+    def _iter_enabled_tools(self):
+        disabled = self._disabled_tool_names()
+        for tool in self.tools:
+            if tool.name not in disabled:
+                yield tool
+
+    async def _handle_tools_list(
+        self, request_id: int, params: dict[str, Any]
+    ):
+        """
+        处理工具列表请求（已按 MCP_TOOLS.DISABLED 过滤）.
+        """
+        cursor = params.get("cursor", "")
+        max_payload_size = 8000
+        tools = list(self._iter_enabled_tools())
+        if not isinstance(cursor, str):
+            await self._reply_error(request_id, "Invalid tools/list cursor")
+            return
+        start = 0
+        if cursor:
+            start = next((i for i, t in enumerate(tools) if t.name == cursor), -1)
+            if start < 0:
+                await self._reply_error(request_id, "Unknown tools/list cursor")
+                return
+        result = {"tools": []}
+        for index in range(start, len(tools)):
+            candidate = {"tools": result["tools"] + [tools[index].to_json()]}
+            if index + 1 < len(tools):
+                candidate["nextCursor"] = tools[index + 1].name
+            payload = {"jsonrpc": "2.0", "id": request_id, "result": candidate}
+            if len(json.dumps(payload).encode("utf-8")) > max_payload_size:
+                if not result["tools"]:
+                    await self._reply_error(
+                        request_id, "Tool definition exceeds tools/list payload limit"
+                    )
+                    return
+                break
+            result = candidate
+        await self._reply_result(request_id, result)
+
+    async def _handle_tool_call(
+        self, request_id: int, params: dict[str, Any]
+    ):
+        """
+        处理工具调用请求.
+        """
+        logger.info(
+            f"[MCP] 收到工具调用请求! ID={request_id}, 参数={params}"
+        )
+
+        tool_name = params.get("name")
+        if not tool_name:
+            await self._reply_error(request_id, "Missing tool name")
+            return
+
+        logger.info(f"[MCP] 尝试调用工具: {tool_name}")
+
+        if tool_name in self._disabled_tool_names():
+            await self._reply_error(
+                request_id, f"Tool disabled: {tool_name}"
+            )
+            return
+
+        # 查找工具
+        tool = None
+        for t in self.tools:
+            if t.name == tool_name:
+                tool = t
+                break
+
+        if not tool:
+            await self._reply_error(
+                request_id, f"Unknown tool: {tool_name}"
+            )
+            return
+
+        # 获取参数
+        arguments = params.get("arguments", {})
+
+        logger.info(f"[MCP] 开始执行工具 {tool_name}, 参数: {arguments}")
+
+        # 异步调用工具
+        try:
+            result = await tool.call(arguments)
+            logger.info(f"[MCP] 工具 {tool_name} 执行成功，结果: {result}")
+            await self._reply_result(request_id, json.loads(result))
+        except Exception as e:
+            logger.error(
+                f"[MCP] 工具 {tool_name} 执行失败: {e}", exc_info=True
+            )
+            await self._reply_error(request_id, str(e))
+
+    async def _parse_capabilities(self, capabilities):
+        """
+        解析capabilities.
+        """
+        vision = capabilities.get("vision", {})
+        if vision and isinstance(vision, dict):
+            url = vision.get("url")
+            token = vision.get("token")
+            if url:
+                camera = self._camera
+                if camera is None:
+                    from src.mcp.tools.camera import create_camera
+
+                    camera = create_camera(config=self.config)
+                    self._camera = camera
+                camera.set_explain_url(url)
+                if token:
+                    camera.set_explain_token(token)
+                logger.info(f"Vision service configured with URL: {url}")
+
+    async def _reply_result(self, request_id: int, result: Any):
+        """
+        发送成功响应.
+        """
+        payload = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": result,
+        }
+
+        result_len = len(json.dumps(result))
+        logger.info(
+            f"[MCP] 发送成功响应: ID={request_id}, 结果长度={result_len}"
+        )
+
+        if self._send_callback:
+            await self._send_callback(json.dumps(payload))
+        else:
+            logger.error("[MCP] 发送回调未设置!")
+
+    async def _reply_error(self, request_id: int, message: str):
+        """
+        发送错误响应.
+        """
+        payload = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {"code": -32603, "message": message},
+        }
+
+        logger.error(
+            f"[MCP] 发送错误响应: ID={request_id}, 错误={message}"
+        )
+
+        if self._send_callback:
+            await self._send_callback(json.dumps(payload))

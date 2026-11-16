@@ -204,6 +204,33 @@ respetar estas reglas, porque cada una corrigió un error real:
    (llamando) en un momento al azar entre 2:30 y 4:00 h (`LLAMAR_MIN`/`LLAMAR_MAX`); el
    conteo vuelve a empezar cada vez que le hablás, al llamar y al levantarse a las 6:00.
 
+31. **Bot de Telegram** (`mongo_telegram.py`, idea tomada de Troko). Long polling a la
+   API de Bot (no abre puertos). Órdenes: /estado, /alarma 6:30 [nota], /recordar 18:00
+   texto (o 20m, 2h), /temporizador 10m [nota], /lista, /cancelar [id|hora|todas],
+   /parar y /mensaje texto (o cualquier texto suelto), que se muestra en pantalla con la
+   cara `mensaje`. Al sonar una alarma, un temporizador o un recordatorio manda un aviso
+   al chat (una vez; los pomodoros no). Solo obedece a TELEGRAM_CHAT_ID; si falta, le
+   contesta al primero que escriba con su chat_id para copiarlo. En la ESP32 el mismo
+   bucle va en una tarea de FreeRTOS con esp_http_client.
+
+32. **Búsqueda web con Tavily** (herramienta `self.web.search`). Para todo lo que cambia
+   con el tiempo (noticias, resultados, precios, horarios); el clima y las rutas siguen
+   con sus herramientas. Plan gratuito con créditos mensuales; la clave empieza con
+   `tvly-`. Mientras busca muestra la cara `pensando`.
+
+33. **Claves.** En la PC van en `mongobot_claves.json` (fuera de git; `mongo_claves.py`
+   las lee cada vez, también de variables de entorno): TAVILY_API_KEY,
+   TELEGRAM_BOT_TOKEN (de @BotFather) y TELEGRAM_CHAT_ID. En la placa, como en Troko, van
+   en un `.env` que se compila dentro del firmware (`XIAOZHI_TAVILY_API_KEY`,
+   `XIAOZHI_TELEGRAM_BOT_TOKEN`, `XIAOZHI_TELEGRAM_CHAT_ID`): ese .bin no se comparte
+   ni se sube a GitHub.
+
+34. **Firmware de la placa.** Troko compila XiaoZhi con ESP-IDF 6.1 y usa una palabra de
+   activación propia en español ("troko", modelo es-ES). Para MongoBot: misma versión
+   de ESP-IDF como referencia y palabra de activación "Mongo" (o "MongoBot") en es-ES en
+   lugar del modelo chino que usa la PC. Primer arranque igual que XiaoZhi: red
+   "Xiaozhi-XXXX", WiFi de 2.4 GHz y el código de 6 dígitos en xiaozhi.me.
+
 ### Matriz de disparadores (69 animaciones)
 
 - **Con disparador propio (46):** escuchando, las 21 emociones del servidor, conversa_escucha,
@@ -213,7 +240,8 @@ respetar estas reglas, porque cada una corrigió un error real:
   temporizador, recordatorio.
 - **Solo en la placa:** conectando, configurar_wifi, actualizando,
   tacto_cosquillas, tacto_molesto, tacto_despertar.
-- **Funciones futuras:** mensaje (Telegram), pomodoro_descanso.
+- **Telegram:** mensaje (llega un texto por el bot).
+- **Funciones futuras:** pomodoro_descanso.
 - **Personalidad, solo por show_face** (las elige la IA según la descripción de la
   herramienta): curioso, decepcionado, esceptico, eureka, excited, ignorando,
   ofendido, orgulloso, picaro, presumido, rodar_ojos, smug, terrified.

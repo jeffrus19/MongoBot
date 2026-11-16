@@ -26,7 +26,7 @@ SERVIDOR = ["neutral","happy","laughing","funny","sad","angry","crying","loving"
 SOLO_PLACA = {"conectando": "conectando al WiFi (placa)", "configurar_wifi": "modo punto de acceso (placa)",
               "actualizando": "actualización de firmware (placa)", "tacto_cosquillas": "tocar la pantalla (placa)",
               "tacto_molesto": "tocar mucho la pantalla (placa)", "tacto_despertar": "tocarlo dormido (placa)",
-              "mensaje": "mensaje de Telegram (función futura)", "pomodoro_trabajo": "pomodoro (función futura)",
+              "mensaje": "llega un mensaje por Telegram (mongo_telegram)", "pomodoro_trabajo": "pomodoro (función futura)",
               "pomodoro_descanso": "pomodoro (función futura)"}
 
 class Pantalla:

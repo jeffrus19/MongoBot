@@ -310,6 +310,13 @@ async def _gritar(it: dict, vez: int) -> None:
             c._texto(_rotulo(it))
     except Exception as e:                                       # noqa: BLE001
         logger.debug(f"[MongoAlarmas] sin rótulo: {e}")
+    if vez == 1:                     # también te avisa por Telegram, una vez
+        try:
+            from src.plugins import mongo_telegram
+
+            mongo_telegram.avisar(f"⏰ {_rotulo(it)} ({datetime.now():%H:%M})")
+        except Exception as e:                                   # noqa: BLE001
+            logger.debug(f"[MongoAlarmas] sin aviso por Telegram: {e}")
     if _enviar is None:
         logger.warning("[MongoAlarmas] no hay conexión con el servidor para gritar")
         return
